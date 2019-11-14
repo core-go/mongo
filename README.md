@@ -18,6 +18,7 @@ import "github.com/common-go/mongo"
 You can optimize the import by version:
 - v1.0.0: Utilities to support query, find one by Id
 - v1.0.1: Utilities to support insert, update, patch, upsert, delete
+- v1.0.2: Utilities to support batch update
 
 ## Example
 
