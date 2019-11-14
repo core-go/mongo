@@ -1,5 +1,7 @@
 # Mongo
 - Mongo Client Utilities
+- ViewService and GenericService
+- SearchService
 
 ## Installation
 
@@ -19,6 +21,8 @@ You can optimize the import by version:
 - v1.0.0: Utilities to support query, find one by Id
 - v1.0.1: Utilities to support insert, update, patch, upsert, delete
 - v1.0.2: Utilities to support batch update
+- v1.0.5: ViewService and GenericService
+- v1.0.8: SearchService
 
 ## Example
 
