@@ -92,6 +92,105 @@ func Exist(ctx context.Context, collection *mongo.Collection, id interface{}, ob
 	return true, nil
 }
 
+func DeleteOne(ctx context.Context, coll *mongo.Collection, query bson.M) (int64, error) {
+	result, err := coll.DeleteOne(ctx, query)
+	return result.DeletedCount, err
+}
+
+func InsertOne(ctx context.Context, collection *mongo.Collection, model interface{}) (interface{}, bool, error) {
+	result, err := collection.InsertOne(ctx, model)
+	if err != nil {
+		if strings.Index(err.Error(), "duplicate key error collection:") >= 0 {
+			return nil, true, nil
+		} else {
+			return nil, false, err
+		}
+	} else {
+		if idValue, ok := result.InsertedID.(primitive.ObjectID); ok {
+			typeOfId := reflect.Indirect(reflect.ValueOf(model)).Type()
+			idField := FindIdField(typeOfId)
+			mapObjectIdToModel(idValue, model, idField)
+		}
+		return model, false, err
+	}
+}
+
+//For Insert
+func mapObjectIdToModel(id primitive.ObjectID, model interface{}, idField string) {
+	valueOfModel := reflect.Indirect(reflect.ValueOf(model))
+	switch valueOfModel.FieldByName(idField).Kind() {
+	case reflect.String:
+		valueOfModel.FieldByName(idField).Set(reflect.ValueOf(id.String()))
+		break
+	default:
+		valueOfModel.FieldByName(idField).Set(reflect.ValueOf(id))
+		break
+	}
+}
+
+func UpdateOne(ctx context.Context, collection *mongo.Collection, model interface{}, query bson.M) (interface{}, error) { //Patch
+	updateQuery := bson.M{
+		"$set": model,
+	}
+	_, err := collection.UpdateOne(ctx, query, updateQuery)
+	return model, err
+}
+
+func UpsertOne(ctx context.Context, collection *mongo.Collection, model interface{}) (interface{}, error) {
+	valueOfModel := reflect.Indirect(reflect.ValueOf(model))
+	modelType := valueOfModel.Type()
+	idFieldName := FindIdField(modelType)
+	idValue := valueOfModel.FieldByName(idFieldName).Interface()
+	idType := valueOfModel.FieldByName(idFieldName).Type()
+	model1 := reflect.New(modelType).Interface()
+	DefaultObjID, _ := primitive.ObjectIDFromHex("000000000000")
+
+	if idValue == "" || idValue == DefaultObjID {
+		result, bool, err := InsertOne(ctx, collection, model)
+		if bool {
+			return nil, err
+		} else {
+			return result, nil
+		}
+	} else {
+		if idType.String() == "primitive.ObjectID" {
+			filter := bson.M{"_id": idValue}
+			update := bson.M{
+				"$set": model,
+			}
+			result := collection.FindOneAndUpdate(ctx, filter, update)
+			err := result.Decode(&model1)
+			return model1, err
+		} else {
+			isExisted, _ := Exist(ctx, collection, idValue, false)
+			if isExisted {
+				filter := bson.M{"_id": idValue}
+				update := bson.M{
+					"$set": model,
+				}
+				result := collection.FindOneAndUpdate(ctx, filter, update)
+				err := result.Decode(&model1)
+				return model1, err
+			} else {
+				result, bool, err := InsertOne(ctx, collection, model)
+				if bool {
+					return nil, err
+				} else {
+					return result, nil
+				}
+			}
+		}
+	}
+}
+
+func PatchOne(ctx context.Context, collection *mongo.Collection, model interface{}, query bson.M) (interface{}, error) {
+	updateQuery := bson.M{
+		"$set": model,
+	}
+	_, err := collection.UpdateOne(ctx, query, updateQuery)
+	return model, err
+}
+
 //For Get By Id
 func FindIdField(modelType reflect.Type) string {
 	numField := modelType.NumField()
@@ -116,4 +215,46 @@ func GetBsonColumnName(ModelType reflect.Type, fieldName string) string {
 	} else {
 		return fieldName
 	}
+}
+
+//For Update
+func BuildQueryByIdFromObject(object interface{}, idName string) bson.M {
+	var query bson.M
+	if v, ok := object.(map[string]interface{}); ok {
+		query = bson.M{"_id": v[idName]}
+	} else {
+		value := reflect.Indirect(reflect.ValueOf(object)).FieldByName(idName).Interface()
+		query = bson.M{"_id": value}
+	}
+	return query
+}
+
+//For Patch
+func MapToBson(object map[string]interface{}, objectMap map[string]string) map[string]interface{} {
+	result := make(map[string]interface{})
+	for key, value := range object {
+		field := objectMap[key]
+		result[field] = value
+	}
+	return result
+}
+
+func MakeMapBson(modelType reflect.Type) map[string]string {
+	maps := make(map[string]string)
+	numField := modelType.NumField()
+	for i := 0; i < numField; i++ {
+		key1 := modelType.Field(i).Name
+		fields, _ := modelType.FieldByName(key1)
+		if tag, ok := fields.Tag.Lookup("bson"); ok {
+			if strings.Contains(tag, ",") {
+				a := strings.Split(tag, ",")
+				maps[key1] = a[0]
+			} else {
+				maps[key1] = tag
+			}
+		} else {
+			maps[key1] = key1
+		}
+	}
+	return maps
 }
