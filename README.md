@@ -6,7 +6,7 @@
 Please make sure to initialize a Go module before installing common-go/mongo:
 
 ```shell
-go get -u github.com/comnon-go/mongo
+go get -u github.com/common-go/mongo
 ```
 
 Import:
@@ -14,6 +14,9 @@ Import:
 ```go
 import "github.com/common-go/mongo"
 ```
+
+You can optimize the import by version:
+- v1.0.0: Utilities to support query, find one by Id
 
 ## Example
 
