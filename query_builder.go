@@ -6,5 +6,5 @@ import (
 )
 
 type QueryBuilder interface {
-	BuildQuery(sm interface{}, resultModelType reflect.Type) bson.M
+	BuildQuery(searchModel interface{}, resultModelType reflect.Type) (bson.M, bson.M)
 }

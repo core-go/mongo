@@ -1,6 +1,9 @@
 # Mongo
 - Mongo Client Utilities
-- ViewService and GenericService
+- HealthService
+- FieldLoader
+- ViewService
+- GenericService
 - SearchService
 
 ## Installation
@@ -18,11 +21,14 @@ import "github.com/common-go/mongo"
 ```
 
 You can optimize the import by version:
-- v1.0.0: Utilities to support query, find one by Id
-- v1.0.1: Utilities to support insert, update, patch, upsert, delete
-- v1.0.2: Utilities to support batch update
-- v1.0.5: ViewService and GenericService
-- v1.0.8: SearchService
+- v0.0.2: HealthService
+- v0.0.3: Utilities to support query, find one by Id
+- v0.0.5: Utilities to support insert, update, patch, upsert, delete
+- v0.0.7: Utilities to support batch update
+- v0.0.8: LocationMapper
+- v0.0.9: FieldLoader 
+- v1.0.6: LocationMapper, FieldLoader, ViewService and GenericService 
+- v1.0.9: SearchService
 
 ## Example
 

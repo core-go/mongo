@@ -8,5 +8,5 @@ import (
 )
 
 type SearchResultBuilder interface {
-	BuildSearchResult(ctx context.Context, collection *mongo.Collection, m interface{}, modelType reflect.Type) (*search.SearchResult, error)
+	BuildSearchResult(ctx context.Context, collection *mongo.Collection, searchModel interface{}, modelType reflect.Type) (*search.SearchResult, error)
 }

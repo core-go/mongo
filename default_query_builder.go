@@ -1,39 +1,85 @@
 package mongo
 
 import (
+	"fmt"
 	"github.com/common-go/search"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"log"
 	"reflect"
 	"strings"
-	"time"
 )
 
 type DefaultQueryBuilder struct {
 }
 
-func (b *DefaultQueryBuilder) BuildQuery(sm interface{}, resultModelType reflect.Type) bson.M {
+func (b *DefaultQueryBuilder) BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 	var query = bson.M{}
+	var fields = bson.M{}
 
 	if _, ok := sm.(*search.SearchModel); ok {
-		return query
+		return query, fields
 	}
 
 	value := reflect.Indirect(reflect.ValueOf(sm))
 	numField := value.NumField()
+	var keyword string
+	keywordFormat := map[string]string {
+		"prefix": "^%v",
+		"contain": "\\w*%v\\w*",
+	}
 	for i := 0; i < numField; i++ {
-		if rangeDate, ok := value.Field(i).Interface().(search.DateRange); ok {
-			columnName := GetBsonColumnName(resultModelType, value.Type().Field(i).Name)
+		x := value.Field(i).Interface()
+		if v, ok := x.(*search.SearchModel); ok {
+			if len(v.Fields) > 0 {
+				for _, key := range v.Fields {
+					_, _, columnName := GetFieldByJson(resultModelType, key)
+					if len(columnName) < 0 {
+						fields = bson.M{}
+						//fields = fields[len(fields):]
+						break
+					}
+					fields[columnName] = 1
+				}
+			} else if len(v.Excluding) > 0 {
+				for key, val := range v.Excluding {
+					idx, fieldName, columnName := GetFieldByJson(resultModelType, key)
+					if len(columnName) == 0 {
+						if idx >= 0 {
+							columnName = fieldName
+						} else {
+							columnName = key
+						}
+					}
+					if len(val) > 0 {
+						actionDateQuery := bson.M{}
+						actionDateQuery["$nin"] = val
+						query[columnName] = actionDateQuery
+					}
+				}
+			} else if len(v.Keyword) > 0 {
+				keyword = strings.TrimSpace(v.Keyword)
+			}
+			continue
+		} else if rangeDate, ok := x.(search.DateRange); ok {
+			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
 
 			actionDateQuery := bson.M{}
 
-			actionDateQuery["$gte"] = rangeDate.StartDate
+			if rangeDate.StartDate == nil && rangeDate.EndDate == nil {
+				continue
+			}  else if rangeDate.StartDate == nil {
+				actionDateQuery["$lte"] = rangeDate.EndDate
+			} else if rangeDate.EndDate == nil {
+				actionDateQuery["$gte"] = rangeDate.StartDate
+			} else {
+				actionDateQuery["$lte"] = rangeDate.EndDate
+				actionDateQuery["$gte"] = rangeDate.StartDate
+			}
+
 			query[columnName] = actionDateQuery
-			var eDate = rangeDate.EndDate.Add(time.Hour * 24)
-			rangeDate.EndDate = &eDate
-			actionDateQuery["$lte"] = rangeDate.EndDate
-			query[columnName] = actionDateQuery
-		} else if rangeTime, ok := value.Field(i).Interface().(search.TimeRange); ok {
-			columnName := GetBsonColumnName(resultModelType, value.Type().Field(i).Name)
+		} else if rangeTime, ok := x.(search.TimeRange); ok {
+			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
 
 			actionDateQuery := bson.M{}
 
@@ -41,15 +87,69 @@ func (b *DefaultQueryBuilder) BuildQuery(sm interface{}, resultModelType reflect
 			query[columnName] = actionDateQuery
 			actionDateQuery["$lt"] = rangeTime.EndTime
 			query[columnName] = actionDateQuery
+		} else if numberRange, ok := x.(search.NumberRange); ok {
+			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
+			amountQuery := bson.M{}
+
+			if numberRange.Min != nil {
+				amountQuery["$gte"] = *numberRange.Min
+			} else if numberRange.Lower != nil {
+				amountQuery["$gt"] = *numberRange.Lower
+			}
+			if numberRange.Max != nil {
+				amountQuery["$lte"] = *numberRange.Max
+			} else if numberRange.Upper != nil {
+				amountQuery["$lt"] = *numberRange.Upper
+			}
+
+			if len(amountQuery) > 0 {
+				query[columnName] = amountQuery
+			}
+		} else if value.Field(i).Kind().String() == "slice" {
+			actionDateQuery := bson.M{}
+			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
+			actionDateQuery["$in"] = x
+			query[columnName] = actionDateQuery
+		} else if value.Field(i).Kind().String() == "string" {
+			var keywordQuery primitive.Regex
+			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
+			var searchValue string
+			if value.Field(i).Len() > 0 {
+				const defaultKey = "contain"
+				if key,ok := value.Type().Field(i).Tag.Lookup("match"); ok {
+					if format, exist := keywordFormat[key]; exist {
+						searchValue = fmt.Sprintf(format, value.Field(i).Interface())
+					} else {
+						log.Panicf("match not support \"%v\" format\n", key)
+
+					}
+				} else if format, exist := keywordFormat[defaultKey]; exist {
+					searchValue = fmt.Sprintf(format, value.Field(i).Interface())
+				}
+			} else if len(keyword) > 0 {
+				if key,ok := value.Type().Field(i).Tag.Lookup("keyword"); ok {
+					if format, exist := keywordFormat[key]; exist {
+						searchValue = fmt.Sprintf(format, keyword)
+
+					} else {
+						log.Panicf("keyword not support \"%v\" format\n", key)
+					}
+				}
+			}
+			if len(searchValue) > 0 {
+				keywordQuery = primitive.Regex{Pattern: searchValue}
+				query[columnName] = keywordQuery
+			}
 		} else {
-			if _, ok := value.Field(i).Interface().(*search.SearchModel); value.Field(i).Kind().String() == "bool" || (strings.Contains(value.Field(i).Kind().String(), "int") && value.Field(i).Interface() != 0) || (strings.Contains(value.Field(i).Kind().String(), "float") && value.Field(i).Interface() != 0) || (!ok && value.Field(i).Kind().String() == "string" && value.Field(i).Len() > 0) || (!ok && value.Field(i).Kind().String() == "ptr" &&
+			t := value.Field(i).Kind().String()
+			if _, ok := x.(*search.SearchModel); t == "bool" || (strings.Contains(t, "int") && x != 0) || (strings.Contains(t, "float") && x != 0)  || (!ok && t == "ptr" &&
 				value.Field(i).Pointer() != 0) {
-				columnName := GetBsonColumnName(resultModelType, value.Type().Field(i).Name)
+				columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
 				if len(columnName) > 0 {
-					query[columnName] = value.Field(i).Interface()
+					query[columnName] = x
 				}
 			}
 		}
 	}
-	return query
+	return query, fields
 }

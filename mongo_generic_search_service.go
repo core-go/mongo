@@ -5,8 +5,14 @@ import (
 	"reflect"
 )
 
-func NewMongoGenericSearchService(db *mongo.Database, modelType reflect.Type, collectionName string, searchBuilder SearchResultBuilder, idObjectId bool) (*DefaultGenericService, *DefaultSearchService) {
-	genericService := NewDefaultGenericService(db, modelType, collectionName, idObjectId)
-	searchService := NewDefaultSearchService(db, modelType, collectionName, searchBuilder)
+func NewGenericSearchService(db *mongo.Database, modelType reflect.Type, collectionName string, searchBuilder SearchResultBuilder, idObjectId bool, versionField string, mapper Mapper) (*GenericService, *SearchService) {
+	genericService := NewGenericService(db, modelType, collectionName, idObjectId, versionField, mapper)
+	searchService := NewSearchService(db, modelType, collectionName, searchBuilder)
+	return genericService, searchService
+}
+
+func NewDefaultGenericSearchService(db *mongo.Database, modelType reflect.Type, collectionName string, searchBuilder SearchResultBuilder) (*GenericService, *SearchService) {
+	genericService := NewGenericService(db, modelType, collectionName, false, "", nil)
+	searchService := NewSearchService(db, modelType, collectionName, searchBuilder)
 	return genericService, searchService
 }
