@@ -46,7 +46,7 @@ func (b *DefaultSearchResultBuilder) BuildSearchResult(ctx context.Context, coll
 			}
 		}
 	}
-	return b.build(ctx, collection, modelType, query, fields, sort, searchModel.PageIndex, searchModel.PageSize, searchModel.InitPageSize)
+	return b.build(ctx, collection, modelType, query, fields, sort, searchModel.Page, searchModel.Limit, searchModel.FirstLimit)
 }
 
 func (b *DefaultSearchResultBuilder) build(ctx context.Context, collection *mongo.Collection, modelType reflect.Type, query bson.M, fields bson.M, sort bson.M, pageIndex int64, pageSize int64, initPageSize int64) (*search.SearchResult, error) {
@@ -89,9 +89,9 @@ func (b *DefaultSearchResultBuilder) build(ctx context.Context, collection *mong
 	count = countDB
 
 	searchResult := search.SearchResult{}
-	searchResult.ItemTotal = count
+	searchResult.Total = count
 
-	searchResult.LastPage = false
+	searchResult.Last = false
 	lengthModels := int64(reflect.Indirect(reflect.ValueOf(results)).Len())
 	var receivedItems int64
 	if initPageSize > 0 {
@@ -103,7 +103,7 @@ func (b *DefaultSearchResultBuilder) build(ctx context.Context, collection *mong
 	} else {
 		receivedItems = pageSize*(pageIndex-1) + lengthModels
 	}
-	searchResult.LastPage = receivedItems >= count
+	searchResult.Last = receivedItems >= count
 
 	if b.Mapper == nil {
 		searchResult.Results = results

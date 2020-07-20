@@ -7,32 +7,26 @@ import (
 	"strings"
 )
 
-const desc = "DESC"
-
 type DefaultSortBuilder struct {
 }
 
 func (b *DefaultSortBuilder) BuildSort(s search.SearchModel, modelType reflect.Type) bson.M {
 	var sort = bson.M{}
-	if len(s.SortField) == 0 {
+	if len(s.Sort) == 0 {
 		return sort
 	}
-	if strings.Index(s.SortField, ",") < 0 {
-		columnName := b.getColumnName(modelType, s.SortField)
-		sortType := b.getSortType(s.SortType)
-		sort[columnName] = sortType
-	} else {
-		sorts := strings.Split(s.SortField, ",")
-		for i := 0; i < len(sorts); i++ {
-			sortField := strings.TrimSpace(sorts[i])
-			params := strings.Split(sortField, " ")
-
-			if len(params) > 0 {
-				columnName := b.getColumnName(modelType, params[0])
-				sortType := b.getSortType(params[1])
-				sort[columnName] = sortType
-			}
+	sorts := strings.Split(s.Sort, ",")
+	for i := 0; i < len(sorts); i++ {
+		sortField := strings.TrimSpace(sorts[i])
+		fieldName := sortField
+		c := sortField[0:1]
+		if c == "-" || c == "+" {
+			fieldName = sortField[1:]
 		}
+
+		columnName := b.getColumnName(modelType, fieldName)
+		sortType := b.getSortType(c)
+		sort[columnName] = sortType
 	}
 	return sort
 }
@@ -50,8 +44,9 @@ func (b *DefaultSortBuilder) getColumnName(modelType reflect.Type, sortField str
 }
 
 func (b *DefaultSortBuilder) getSortType(sortType string) int {
-	if strings.ToUpper(sortType) != strings.ToUpper(desc) {
+	if sortType == "-" {
+		return -1
+	} else  {
 		return 1
 	}
-	return -1
 }

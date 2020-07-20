@@ -16,7 +16,7 @@ type ViewService struct {
 	idName     string
 	idIndex    int
 	idObjectId bool
-	idNames    []string
+	keys       []string
 }
 
 func NewViewService(db *mongo.Database, modelType reflect.Type, collectionName string, idObjectId bool, mapper Mapper) *ViewService {
@@ -33,8 +33,8 @@ func NewDefaultViewService(db *mongo.Database, modelType reflect.Type, collectio
 	return NewViewService(db, modelType, collectionName, false, nil)
 }
 
-func (m *ViewService) Ids() []string {
-	return m.idNames
+func (m *ViewService) Keys() []string {
+	return m.keys
 }
 
 func (m *ViewService) All(ctx context.Context) (interface{}, error) {
