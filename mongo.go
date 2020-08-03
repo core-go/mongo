@@ -291,9 +291,9 @@ func InsertOne(ctx context.Context, collection *mongo.Collection, model interfac
 		errMsg := err.Error()
 		if strings.Index(errMsg, "duplicate key error collection:") >= 0 {
 			if strings.Index(errMsg, "dup key: { _id: ") >= 0 {
-				return -1, nil
+				return 0, nil
 			} else {
-				return -2, nil
+				return -1, nil
 			}
 		} else {
 			return 0, err
@@ -515,9 +515,9 @@ func UpdateMany(ctx context.Context, collection *mongo.Collection, models interf
 
 func UpdateMaps(ctx context.Context, collection *mongo.Collection, maps []map[string]interface{}, idName string) (*mongo.BulkWriteResult, error) {
 	models_ := make([]mongo.WriteModel, 0)
-	for _, row:= range maps{
+	for _, row := range maps {
 		v, _ := row[idName]
-		if v!=nil{
+		if v != nil {
 			updateModel := mongo.NewUpdateOneModel().SetUpdate(bson.M{
 				"$set": row,
 			}).SetFilter(bson.M{"_id": v})
@@ -530,14 +530,14 @@ func UpdateMaps(ctx context.Context, collection *mongo.Collection, maps []map[st
 
 func UpsertMaps(ctx context.Context, collection *mongo.Collection, maps []map[string]interface{}, idName string) (*mongo.BulkWriteResult, error) {
 	models_ := make([]mongo.WriteModel, 0)
-	for _, row:= range maps{
+	for _, row := range maps {
 		id, _ := row[idName]
 		if id != nil || (reflect.TypeOf(id).String() == "string") || (reflect.TypeOf(id).String() == "string" && len(id.(string)) > 0) {
 			updateModel := mongo.NewUpdateOneModel().SetUpdate(bson.M{
 				"$set": row,
 			}).SetUpsert(true).SetFilter(bson.M{"_id": id})
 			models_ = append(models_, updateModel)
-		}else{
+		} else {
 			insertModel := mongo.NewInsertOneModel().SetDocument(row)
 			models_ = append(models_, insertModel)
 		}
@@ -1140,4 +1140,24 @@ func InArray(value int, arr []int) bool {
 		}
 	}
 	return false
+}
+
+func GetBsonNameForSort(modelType reflect.Type, sortField string) string {
+	sortField = strings.TrimSpace(sortField)
+	idx, fieldName, name := GetFieldByJson(modelType, sortField)
+	if len(name) > 0 {
+		return name
+	}
+	if idx >= 0 {
+		return fieldName
+	}
+	return sortField
+}
+
+func GetSortType(sortType string) int {
+	if sortType == "-" {
+		return -1
+	} else {
+		return 1
+	}
 }

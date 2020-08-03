@@ -24,29 +24,9 @@ func (b *DefaultSortBuilder) BuildSort(s search.SearchModel, modelType reflect.T
 			fieldName = sortField[1:]
 		}
 
-		columnName := b.getColumnName(modelType, fieldName)
-		sortType := b.getSortType(c)
+		columnName := GetBsonNameForSort(modelType, fieldName)
+		sortType := GetSortType(c)
 		sort[columnName] = sortType
 	}
 	return sort
-}
-
-func (b *DefaultSortBuilder) getColumnName(modelType reflect.Type, sortField string) string {
-	sortField = strings.TrimSpace(sortField)
-	idx, fieldName, name  := GetFieldByJson(modelType, sortField)
-	if len(name) > 0 {
-		return name
-	}
-	if idx >= 0 {
-		return fieldName
-	}
-	return sortField
-}
-
-func (b *DefaultSortBuilder) getSortType(sortType string) int {
-	if sortType == "-" {
-		return -1
-	} else  {
-		return 1
-	}
 }
