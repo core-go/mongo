@@ -2,7 +2,6 @@ package mongo
 
 import (
 	"context"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"log"
 	"reflect"
@@ -37,7 +36,7 @@ func (m *BatchUpdateService) InsertMany(ctx context.Context, models interface{})
 
 func (m *BatchUpdateService) UpdateMany(ctx context.Context, models interface{}) (int64, error) {
 	objects, _ := MapToMongoObjects(models, m.idName, m.idObjectId, m.modelType, false)
-	rs, err := UpdateMany(ctx, m.collection, objects, bson.M{})
+	rs, err := UpdateMany(ctx, m.collection, objects, m.idName)
 	if err != nil {
 		return 0, err
 	}

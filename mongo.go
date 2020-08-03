@@ -488,58 +488,20 @@ func UpdateOne(ctx context.Context, collection *mongo.Collection, model interfac
 	}
 }
 
-func UpdateMany(ctx context.Context, collection *mongo.Collection, models interface{}, filter interface{}) (*mongo.BulkWriteResult, error) {
+func UpdateMany(ctx context.Context, collection *mongo.Collection, models interface{}, idName string) (*mongo.BulkWriteResult, error) {
 	models_ := make([]mongo.WriteModel, 0)
-	switch reflect.TypeOf(models).Kind() {
-	case reflect.Slice:
+	if reflect.TypeOf(models).Kind() == reflect.Slice {
 		values := reflect.ValueOf(models)
 		length := values.Len()
 		if length > 0 {
-			modelType := reflect.Indirect(reflect.ValueOf(values.Index(0).Interface())).Type()
-			if index, _ := FindIdField(modelType); index != -1 {
+			if index := findIndex(values.Index(0).Interface(), idName); index != -1 {
 				for i := 0; i < length; i++ {
 					row := values.Index(i).Interface()
-					updateModel := mongo.NewUpdateOneModel().SetUpdate(row).SetFilter(filter)
-					if filter == nil {
-						v, _ := getValue(row, index)
-						updateModel = mongo.NewUpdateOneModel().SetUpdate(row).SetFilter(bson.M{"_id": v})
-					}
+					v, _ := getValue(row, index)
+					updateModel := mongo.NewUpdateOneModel().SetUpdate(row).SetFilter(bson.M{"_id": v})
 					models_ = append(models_, updateModel)
 				}
 			}
-		}
-	}
-	res, err := collection.BulkWrite(ctx, models_)
-	return res, err
-}
-
-func UpdateMaps(ctx context.Context, collection *mongo.Collection, maps []map[string]interface{}, idName string) (*mongo.BulkWriteResult, error) {
-	models_ := make([]mongo.WriteModel, 0)
-	for _, row := range maps {
-		v, _ := row[idName]
-		if v != nil {
-			updateModel := mongo.NewUpdateOneModel().SetUpdate(bson.M{
-				"$set": row,
-			}).SetFilter(bson.M{"_id": v})
-			models_ = append(models_, updateModel)
-		}
-	}
-	res, err := collection.BulkWrite(ctx, models_)
-	return res, err
-}
-
-func UpsertMaps(ctx context.Context, collection *mongo.Collection, maps []map[string]interface{}, idName string) (*mongo.BulkWriteResult, error) {
-	models_ := make([]mongo.WriteModel, 0)
-	for _, row := range maps {
-		id, _ := row[idName]
-		if id != nil || (reflect.TypeOf(id).String() == "string") || (reflect.TypeOf(id).String() == "string" && len(id.(string)) > 0) {
-			updateModel := mongo.NewUpdateOneModel().SetUpdate(bson.M{
-				"$set": row,
-			}).SetUpsert(true).SetFilter(bson.M{"_id": id})
-			models_ = append(models_, updateModel)
-		} else {
-			insertModel := mongo.NewInsertOneModel().SetDocument(row)
-			models_ = append(models_, insertModel)
 		}
 	}
 	res, err := collection.BulkWrite(ctx, models_)
@@ -551,6 +513,9 @@ func PatchOne(ctx context.Context, collection *mongo.Collection, model interface
 		"$set": model,
 	}
 	result, err := collection.UpdateOne(ctx, query, updateQuery)
+	if err != nil {
+		return 0, err
+	}
 	if result.ModifiedCount > 0 {
 		return result.ModifiedCount, err
 	} else if result.UpsertedCount > 0 {
@@ -780,6 +745,60 @@ func UpsertMany(ctx context.Context, collection *mongo.Collection, model interfa
 	}
 	rs, err := collection.BulkWrite(ctx, models)
 	return rs, err
+}
+
+func UpdateMaps(ctx context.Context, collection *mongo.Collection, maps []map[string]interface{}, idName string) (*mongo.BulkWriteResult, error) {
+	if idName == "" {
+		idName = "_id"
+	}
+	models_ := make([]mongo.WriteModel, 0)
+	for _, row := range maps {
+		v, _ := row[idName]
+		if v != nil {
+			updateModel := mongo.NewReplaceOneModel().SetReplacement(bson.M{
+				"$set": row,
+			}).SetFilter(bson.M{"_id": v})
+			models_ = append(models_, updateModel)
+		}
+	}
+	res, err := collection.BulkWrite(ctx, models_)
+	return res, err
+}
+
+func PatchMaps(ctx context.Context, collection *mongo.Collection, maps []map[string]interface{}, idName string) (*mongo.BulkWriteResult, error) {
+	if idName == "" {
+		idName = "_id"
+	}
+	writeModels := make([]mongo.WriteModel, 0)
+	for _, row := range maps {
+		v, _ := row[idName]
+		if v != nil {
+			updateModel := mongo.NewUpdateOneModel().SetUpdate(bson.M{
+				"$set": row,
+			}).SetFilter(bson.M{"_id": v})
+			writeModels = append(writeModels, updateModel)
+		}
+	}
+	res, err := collection.BulkWrite(ctx, writeModels)
+	return res, err
+}
+
+func UpsertMaps(ctx context.Context, collection *mongo.Collection, maps []map[string]interface{}, idName string) (*mongo.BulkWriteResult, error) {
+	models_ := make([]mongo.WriteModel, 0)
+	for _, row := range maps {
+		id, _ := row[idName]
+		if id != nil || (reflect.TypeOf(id).String() == "string") || (reflect.TypeOf(id).String() == "string" && len(id.(string)) > 0) {
+			updateModel := mongo.NewUpdateOneModel().SetUpdate(bson.M{
+				"$set": row,
+			}).SetUpsert(true).SetFilter(bson.M{"_id": id})
+			models_ = append(models_, updateModel)
+		} else {
+			insertModel := mongo.NewInsertOneModel().SetDocument(row)
+			models_ = append(models_, insertModel)
+		}
+	}
+	res, err := collection.BulkWrite(ctx, models_)
+	return res, err
 }
 
 //For Get By Id
