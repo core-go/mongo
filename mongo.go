@@ -474,6 +474,16 @@ func existInArray(arr []int, value interface{}) bool {
 	return false
 }
 
+func Update(ctx context.Context, collection *mongo.Collection, model interface{}, fieldname string) error {
+	query := BuildQueryId(model, fieldname)
+	defaultObjID, _ := primitive.ObjectIDFromHex("000000000000")
+	if idValue := query["_id"]; !(idValue == "" || idValue == 0 || idValue == defaultObjID) {
+		_, err := UpdateOne(ctx, collection, model, query)
+		return err
+	}
+	return errors.New("Require field _id")
+}
+
 func UpdateOne(ctx context.Context, collection *mongo.Collection, model interface{}, query bson.M) (int64, error) { //Patch
 	updateQuery := bson.M{
 		"$set": model,
@@ -660,6 +670,22 @@ func existInArrayInterface(arr interface{}, valueID interface{}) bool {
 		}
 	}
 	return false
+}
+
+func BuildQueryId(model interface{}, fieldname string) bson.M {
+	query := bson.M{}
+	if i := findIndex(model, fieldname); i != -1 {
+		id, _ := getValue(model, i)
+		query = bson.M{
+			"_id": id,
+		}
+	}
+	return query
+}
+func Upsert(ctx context.Context, collection *mongo.Collection, model interface{}, fieldname string) error {
+	query := BuildQueryId(model, fieldname)
+	_, err := UpsertOne(ctx, collection, query, model)
+	return err
 }
 
 func UpsertOne(ctx context.Context, collection *mongo.Collection, filter bson.M, model interface{}) (int64, error) {
