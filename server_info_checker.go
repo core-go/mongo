@@ -9,25 +9,25 @@ import (
 	"go.mongodb.org/mongo-driver/x/bsonx"
 )
 
-type ServerInfoService struct {
+type ServerInfoChecker struct {
 	db      *mongo.Database
 	name    string
 	timeout time.Duration
 }
 
-func NewServerInfoService(db *mongo.Database, name string, timeout time.Duration) *ServerInfoService {
-	return &ServerInfoService{db, name, timeout}
+func NewServerInfoChecker(db *mongo.Database, name string, timeout time.Duration) *ServerInfoChecker {
+	return &ServerInfoChecker{db, name, timeout}
 }
 
-func NewDefaultServerInfoService(db *mongo.Database) *ServerInfoService {
-	return &ServerInfoService{db, "mongo", 5 * time.Second}
+func NewDefaultServerInfoChecker(db *mongo.Database) *ServerInfoChecker {
+	return &ServerInfoChecker{db, "mongo", 5 * time.Second}
 }
 
-func (s *ServerInfoService) Name() string {
+func (s *ServerInfoChecker) Name() string {
 	return s.name
 }
 
-func (s *ServerInfoService) Check(ctx context.Context) (map[string]interface{}, error) {
+func (s *ServerInfoChecker) Check(ctx context.Context) (map[string]interface{}, error) {
 	cancel := func() {}
 	if s.timeout > 0 {
 		ctx, cancel = context.WithTimeout(ctx, s.timeout)
@@ -49,7 +49,7 @@ func (s *ServerInfoService) Check(ctx context.Context) (map[string]interface{}, 
 	}
 }
 
-func (s *ServerInfoService) Build(ctx context.Context, data map[string]interface{}, err error) map[string]interface{} {
+func (s *ServerInfoChecker) Build(ctx context.Context, data map[string]interface{}, err error) map[string]interface{} {
 	if err == nil {
 		return data
 	}
