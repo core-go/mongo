@@ -61,7 +61,7 @@ type ActivityLogConfig struct {
 	Goroutines bool   `mapstructure:"goroutines" json:"goroutines,omitempty" gorm:"column:goroutines" bson:"goroutines,omitempty" dynamodbav:"goroutines,omitempty" firestore:"goroutines,omitempty"`
 }
 
-func (s *ActivityLogWriter) SaveLog(ctx context.Context, resource string, action string, success bool, desc string) error {
+func (s *ActivityLogWriter) Write(ctx context.Context, resource string, action string, success bool, desc string) error {
 	log := make(map[string]interface{})
 	now := time.Now()
 	ch := s.Schema
