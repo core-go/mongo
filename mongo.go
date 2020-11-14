@@ -12,6 +12,7 @@ import (
 	"log"
 	"reflect"
 	"strings"
+	"time"
 )
 
 func SetupMongo(ctx context.Context, c MongoConfig) (*mongo.Database, error) {
@@ -23,19 +24,19 @@ func SetupMongo(ctx context.Context, c MongoConfig) (*mongo.Database, error) {
 		option = option.SetMinPoolSize(c.MinPoolSize)
 	}
 	if c.ConnectTimeout > 0 {
-		option = option.SetConnectTimeout(c.ConnectTimeout)
+		option = option.SetConnectTimeout(time.Duration(c.ConnectTimeout)*time.Second)
 	}
 	if c.SocketTimeout > 0 {
-		option = option.SetSocketTimeout(c.SocketTimeout)
+		option = option.SetSocketTimeout(time.Duration(c.SocketTimeout)*time.Second)
 	}
 	if c.ServerSelectionTimeout > 0 {
-		option = option.SetServerSelectionTimeout(c.ServerSelectionTimeout)
+		option = option.SetServerSelectionTimeout(time.Duration(c.ServerSelectionTimeout)*time.Second)
 	}
 	if c.LocalThreshold > 0 {
-		option = option.SetLocalThreshold(c.LocalThreshold)
+		option = option.SetLocalThreshold(time.Duration(c.LocalThreshold)*time.Second)
 	}
 	if c.HeartbeatInterval > 0 {
-		option = option.SetHeartbeatInterval(c.HeartbeatInterval)
+		option = option.SetHeartbeatInterval(time.Duration(c.HeartbeatInterval)*time.Second)
 	}
 	if c.ZlibLevel != 0 {
 		option = option.SetZlibLevel(c.ZlibLevel)
