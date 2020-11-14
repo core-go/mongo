@@ -12,7 +12,9 @@ import (
 
 type DefaultQueryBuilder struct {
 }
-
+func NewQueryBuilder() *DefaultQueryBuilder {
+	return &DefaultQueryBuilder{}
+}
 func (b *DefaultQueryBuilder) BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 	var query = bson.M{}
 	var fields = bson.M{}

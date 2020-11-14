@@ -9,7 +9,9 @@ import (
 
 type DefaultSortBuilder struct {
 }
-
+func NewSortBuilder() *DefaultSortBuilder {
+	return &DefaultSortBuilder{}
+}
 func (b *DefaultSortBuilder) BuildSort(s search.SearchModel, modelType reflect.Type) bson.M {
 	var sort = bson.M{}
 	if len(s.Sort) == 0 {
