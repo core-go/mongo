@@ -1,6 +1,7 @@
 package mongo
 
 import (
+	"errors"
 	"fmt"
 	"github.com/common-go/search"
 	"go.mongodb.org/mongo-driver/bson"
@@ -80,6 +81,23 @@ func (b *DefaultQueryBuilder) BuildQuery(sm interface{}, resultModelType reflect
 			}
 
 			query[columnName] = actionDateQuery
+		} else if dateRange, ok := x.(*search.DateRange); ok && dateRange != nil {
+			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
+
+			actionDateQuery := bson.M{}
+
+			if rangeDate.StartDate == nil && rangeDate.EndDate == nil {
+				continue
+			}  else if rangeDate.StartDate == nil {
+				actionDateQuery["$lte"] = rangeDate.EndDate
+			} else if rangeDate.EndDate == nil {
+				actionDateQuery["$gte"] = rangeDate.StartDate
+			} else {
+				actionDateQuery["$lte"] = rangeDate.EndDate
+				actionDateQuery["$gte"] = rangeDate.StartDate
+			}
+
+			query[columnName] = actionDateQuery
 		} else if rangeTime, ok := x.(search.TimeRange); ok {
 			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
 
@@ -89,7 +107,34 @@ func (b *DefaultQueryBuilder) BuildQuery(sm interface{}, resultModelType reflect
 			query[columnName] = actionDateQuery
 			actionDateQuery["$lt"] = rangeTime.EndTime
 			query[columnName] = actionDateQuery
+		} else if rangeTime, ok := x.(*search.TimeRange); ok && rangeTime != nil {
+			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
+
+			actionDateQuery := bson.M{}
+
+			actionDateQuery["$gte"] = rangeTime.StartTime
+			query[columnName] = actionDateQuery
+			actionDateQuery["$lt"] = rangeTime.EndTime
+			query[columnName] = actionDateQuery
 		} else if numberRange, ok := x.(search.NumberRange); ok {
+			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
+			amountQuery := bson.M{}
+
+			if numberRange.Min != nil {
+				amountQuery["$gte"] = *numberRange.Min
+			} else if numberRange.Lower != nil {
+				amountQuery["$gt"] = *numberRange.Lower
+			}
+			if numberRange.Max != nil {
+				amountQuery["$lte"] = *numberRange.Max
+			} else if numberRange.Upper != nil {
+				amountQuery["$lt"] = *numberRange.Upper
+			}
+
+			if len(amountQuery) > 0 {
+				query[columnName] = amountQuery
+			}
+		} else if numberRange, ok := x.(*search.NumberRange); ok && numberRange != nil {
 			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
 			amountQuery := bson.M{}
 
@@ -154,4 +199,19 @@ func (b *DefaultQueryBuilder) BuildQuery(sm interface{}, resultModelType reflect
 		}
 	}
 	return query, fields
+}
+
+func ExtractSearchInfo(m interface{}) (string, int64, int64, int64, error) {
+	if sModel, ok := m.(*search.SearchModel); ok {
+		return sModel.Sort, sModel.PageIndex, sModel.PageSize, sModel.FirstPageSize, nil
+	} else {
+		value := reflect.Indirect(reflect.ValueOf(m))
+		numField := value.NumField()
+		for i := 0; i < numField; i++ {
+			if sModel1, ok := value.Field(i).Interface().(*search.SearchModel); ok {
+				return sModel1.Sort, sModel1.PageIndex, sModel1.PageSize, sModel1.FirstPageSize, nil
+			}
+		}
+		return "", 0, 0, 0, errors.New("cannot extract sort, pageIndex, pageSize, firstPageSize from model")
+	}
 }
