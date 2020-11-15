@@ -64,59 +64,49 @@ func (b *DefaultQueryBuilder) BuildQuery(sm interface{}, resultModelType reflect
 				keyword = strings.TrimSpace(v.Keyword)
 			}
 			continue
-		} else if rangeDate, ok := x.(search.DateRange); ok {
+		} else if rangeTime, ok := x.(*search.TimeRange); ok && rangeTime != nil {
 			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
-
 			actionDateQuery := bson.M{}
-
-			if rangeDate.StartDate == nil && rangeDate.EndDate == nil {
-				continue
-			}  else if rangeDate.StartDate == nil {
-				actionDateQuery["$lte"] = rangeDate.EndDate
-			} else if rangeDate.EndDate == nil {
-				actionDateQuery["$gte"] = rangeDate.StartDate
-			} else {
-				actionDateQuery["$lte"] = rangeDate.EndDate
-				actionDateQuery["$gte"] = rangeDate.StartDate
-			}
-
+			actionDateQuery["$gte"] = rangeTime.StartTime
 			query[columnName] = actionDateQuery
-		} else if dateRange, ok := x.(*search.DateRange); ok && dateRange != nil {
-			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
-
-			actionDateQuery := bson.M{}
-
-			if rangeDate.StartDate == nil && rangeDate.EndDate == nil {
-				continue
-			}  else if rangeDate.StartDate == nil {
-				actionDateQuery["$lte"] = rangeDate.EndDate
-			} else if rangeDate.EndDate == nil {
-				actionDateQuery["$gte"] = rangeDate.StartDate
-			} else {
-				actionDateQuery["$lte"] = rangeDate.EndDate
-				actionDateQuery["$gte"] = rangeDate.StartDate
-			}
-
+			actionDateQuery["$lt"] = rangeTime.EndTime
 			query[columnName] = actionDateQuery
 		} else if rangeTime, ok := x.(search.TimeRange); ok {
 			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
-
 			actionDateQuery := bson.M{}
-
 			actionDateQuery["$gte"] = rangeTime.StartTime
 			query[columnName] = actionDateQuery
 			actionDateQuery["$lt"] = rangeTime.EndTime
 			query[columnName] = actionDateQuery
-		} else if rangeTime, ok := x.(*search.TimeRange); ok && rangeTime != nil {
+		} else if rangeDate, ok := x.(*search.DateRange); ok && rangeDate != nil {
 			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
-
 			actionDateQuery := bson.M{}
-
-			actionDateQuery["$gte"] = rangeTime.StartTime
+			if rangeDate.StartDate == nil && rangeDate.EndDate == nil {
+				continue
+			}  else if rangeDate.StartDate == nil {
+				actionDateQuery["$lte"] = rangeDate.EndDate
+			} else if rangeDate.EndDate == nil {
+				actionDateQuery["$gte"] = rangeDate.StartDate
+			} else {
+				actionDateQuery["$lte"] = rangeDate.EndDate
+				actionDateQuery["$gte"] = rangeDate.StartDate
+			}
 			query[columnName] = actionDateQuery
-			actionDateQuery["$lt"] = rangeTime.EndTime
+		} else if rangeDate, ok := x.(search.DateRange); ok {
+			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
+			actionDateQuery := bson.M{}
+			if rangeDate.StartDate == nil && rangeDate.EndDate == nil {
+				continue
+			}  else if rangeDate.StartDate == nil {
+				actionDateQuery["$lte"] = rangeDate.EndDate
+			} else if rangeDate.EndDate == nil {
+				actionDateQuery["$gte"] = rangeDate.StartDate
+			} else {
+				actionDateQuery["$lte"] = rangeDate.EndDate
+				actionDateQuery["$gte"] = rangeDate.StartDate
+			}
 			query[columnName] = actionDateQuery
-		} else if numberRange, ok := x.(search.NumberRange); ok {
+		} else if numberRange, ok := x.(*search.NumberRange); ok && numberRange != nil {
 			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
 			amountQuery := bson.M{}
 
@@ -134,7 +124,7 @@ func (b *DefaultQueryBuilder) BuildQuery(sm interface{}, resultModelType reflect
 			if len(amountQuery) > 0 {
 				query[columnName] = amountQuery
 			}
-		} else if numberRange, ok := x.(*search.NumberRange); ok && numberRange != nil {
+		} else if numberRange, ok := x.(search.NumberRange); ok {
 			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
 			amountQuery := bson.M{}
 
