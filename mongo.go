@@ -24,19 +24,19 @@ func SetupMongo(ctx context.Context, c MongoConfig) (*mongo.Database, error) {
 		option = option.SetMinPoolSize(c.MinPoolSize)
 	}
 	if c.ConnectTimeout > 0 {
-		option = option.SetConnectTimeout(time.Duration(c.ConnectTimeout)*time.Second)
+		option = option.SetConnectTimeout(time.Duration(c.ConnectTimeout) * time.Second)
 	}
 	if c.SocketTimeout > 0 {
-		option = option.SetSocketTimeout(time.Duration(c.SocketTimeout)*time.Second)
+		option = option.SetSocketTimeout(time.Duration(c.SocketTimeout) * time.Second)
 	}
 	if c.ServerSelectionTimeout > 0 {
-		option = option.SetServerSelectionTimeout(time.Duration(c.ServerSelectionTimeout)*time.Second)
+		option = option.SetServerSelectionTimeout(time.Duration(c.ServerSelectionTimeout) * time.Second)
 	}
 	if c.LocalThreshold > 0 {
-		option = option.SetLocalThreshold(time.Duration(c.LocalThreshold)*time.Second)
+		option = option.SetLocalThreshold(time.Duration(c.LocalThreshold) * time.Second)
 	}
 	if c.HeartbeatInterval > 0 {
-		option = option.SetHeartbeatInterval(time.Duration(c.HeartbeatInterval)*time.Second)
+		option = option.SetHeartbeatInterval(time.Duration(c.HeartbeatInterval) * time.Second)
 	}
 	if c.ZlibLevel != 0 {
 		option = option.SetZlibLevel(c.ZlibLevel)
@@ -283,6 +283,9 @@ func Exist(ctx context.Context, collection *mongo.Collection, id interface{}, ob
 
 func DeleteOne(ctx context.Context, coll *mongo.Collection, query bson.M) (int64, error) {
 	result, err := coll.DeleteOne(ctx, query)
+	if result == nil {
+		return 0, err
+	}
 	return result.DeletedCount, err
 }
 
