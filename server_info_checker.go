@@ -20,7 +20,7 @@ func NewServerInfoCheckerWithTimeout(db *mongo.Database, name string, timeout ti
 }
 func NewServerInfoChecker(db *mongo.Database, options ...string) *ServerInfoChecker {
 	var name string
-	if len(options) >= 1 {
+	if len(options) >= 1 && len(options[0]) > 0 {
 		name = options[0]
 	} else {
 		name = "mongo"
