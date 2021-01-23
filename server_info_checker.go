@@ -18,11 +18,14 @@ type ServerInfoChecker struct {
 func NewServerInfoCheckerWithTimeout(db *mongo.Database, name string, timeout time.Duration) *ServerInfoChecker {
 	return &ServerInfoChecker{db, name, timeout}
 }
-func NewMongoServerInfoChecker(db *mongo.Database, name string) *ServerInfoChecker {
+func NewServerInfoChecker(db *mongo.Database, options ...string) *ServerInfoChecker {
+	var name string
+	if len(options) >= 1 {
+		name = options[0]
+	} else {
+		name = "mongo"
+	}
 	return NewServerInfoCheckerWithTimeout(db, name, 4 * time.Second)
-}
-func NewServerInfoChecker(db *mongo.Database) *ServerInfoChecker {
-	return NewServerInfoCheckerWithTimeout(db, "mongo", 4 * time.Second)
 }
 
 func (s *ServerInfoChecker) Name() string {

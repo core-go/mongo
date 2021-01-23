@@ -6,33 +6,21 @@ import (
 	"reflect"
 )
 
-type MongoBatchUpdate struct {
+type MongoBatchInserter struct {
 	collection *mongo.Collection
-	IdName     string
-	modelType  reflect.Type
-	modelsType reflect.Type
 }
 
-func NewMongoBatchUpdateWithIdName(database *mongo.Database, collectionName string, modelType reflect.Type, fieldName string) *MongoBatchUpdate {
-	if len(fieldName) == 0 {
-		_, idName := FindIdField(modelType)
-		fieldName = idName
-	}
-	modelsType := reflect.Zero(reflect.SliceOf(modelType)).Type()
+func NewMongoBatchInserter(database *mongo.Database, collectionName string) *MongoBatchInserter {
 	collection := database.Collection(collectionName)
-	return &MongoBatchUpdate{collection, fieldName, modelType, modelsType}
+	return &MongoBatchInserter{collection}
 }
 
-func NewMongoBatchUpdate(database *mongo.Database, collectionName string, modelType reflect.Type) *MongoBatchUpdate {
-	return NewMongoBatchUpdateWithIdName(database, collectionName, modelType, "")
-}
-
-func (w *MongoBatchUpdate) WriteBatch(ctx context.Context, models interface{}) ([]int, []int, error) {
+func (w *MongoBatchInserter) WriteBatch(ctx context.Context, models interface{}) ([]int, []int, error) {
 	successIndices := make([]int, 0)
 	failIndices := make([]int, 0)
 
 	s := reflect.ValueOf(models)
-	_, err := UpdateMany(ctx, w.collection, models, w.IdName)
+	_, _, err := InsertManySkipErrors(ctx, w.collection, models)
 
 	if err == nil {
 		// Return full success
