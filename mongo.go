@@ -375,12 +375,12 @@ func mapObjectIdToModel(id primitive.ObjectID, valueOfModel reflect.Value, idInd
 	switch reflect.Indirect(valueOfModel).Field(idIndex).Kind() {
 	case reflect.String:
 		if _, err := setValue(valueOfModel, idIndex, id.Hex()); err != nil {
-			log.Println("Err: ", err)
+			log.Println("Err: " + err.Error())
 		}
 		break
 	default:
 		if _, err := setValue(valueOfModel, idIndex, id); err != nil {
-			log.Println("Err: ", err)
+			log.Println("Err: " + err.Error())
 		}
 		break
 	}
