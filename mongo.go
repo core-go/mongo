@@ -437,7 +437,8 @@ func mapIdInObjects(models interface{}, arrayFailIndexIgnore []int, insertedIDs 
 	switch reflect.TypeOf(models).Kind() {
 	case reflect.Slice:
 		values := reflect.ValueOf(models)
-		if length := values.Len(); length > 0 {
+		length := values.Len()
+		if length > 0 && length == len(insertedIDs) {
 			if index := findIndex(values.Index(0).Interface(), fieldName); index != -1 {
 				for i := 0; i < length; i++ {
 					if !existInArray(arrayFailIndexIgnore, i) {
