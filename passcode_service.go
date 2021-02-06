@@ -15,12 +15,19 @@ type PasscodeService struct {
 	expiredAtName string
 }
 
-func NewPasscodeService(db *mongo.Database, collectionName string, passcodeName string, expiredAtName string) *PasscodeService {
+func NewPasscodeService(db *mongo.Database, collectionName string, options ...string) *PasscodeService {
+	var passcodeName, expiredAtName string
+	if len(options) >= 1 && len(options[0]) > 0 {
+		expiredAtName = options[0]
+	} else {
+		expiredAtName = "expiredAt"
+	}
+	if len(options) >= 2 && len(options[1]) > 0 {
+		passcodeName = options[1]
+	} else {
+		passcodeName = "passcode"
+	}
 	return &PasscodeService{db.Collection(collectionName), passcodeName, expiredAtName}
-}
-
-func NewDefaultPasscodeService(db *mongo.Database, collectionName string) *PasscodeService {
-	return &PasscodeService{db.Collection(collectionName), "passcode", "expiredAt"}
 }
 
 func (s *PasscodeService) Save(ctx context.Context, id string, passcode string, expiredAt time.Time) (int64, error) {
