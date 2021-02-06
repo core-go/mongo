@@ -19,7 +19,11 @@ type ViewService struct {
 	keys       []string
 }
 
-func NewMongoViewService(db *mongo.Database, modelType reflect.Type, collectionName string, idObjectId bool, mapper Mapper) *ViewService {
+func NewMongoViewService(db *mongo.Database, modelType reflect.Type, collectionName string, idObjectId bool, options ...Mapper) *ViewService {
+	var mapper Mapper
+	if len(options) >= 1 {
+		mapper = options[0]
+	}
 	idIndex, idName := FindIdField(modelType)
 	if len(idName) == 0 {
 		log.Println(modelType.Name() + " repository can't use functions that need Id value (Ex GetById, ExistsById, Save, Update) because don't have any fields of " + modelType.Name() + " struct define _id bson tag.")
@@ -29,8 +33,12 @@ func NewMongoViewService(db *mongo.Database, modelType reflect.Type, collectionN
 	return &ViewService{db.Collection(collectionName), mapper, modelType, idName, idIndex, idObjectId, idNames}
 }
 
-func NewViewService(db *mongo.Database, modelType reflect.Type, collectionName string) *ViewService {
-	return NewMongoViewService(db, modelType, collectionName, false, nil)
+func NewViewService(db *mongo.Database, modelType reflect.Type, collectionName string, options ...Mapper) *ViewService {
+	var mapper Mapper
+	if len(options) >= 1 {
+		mapper = options[0]
+	}
+	return NewMongoViewService(db, modelType, collectionName, false, mapper)
 }
 
 func (m *ViewService) Keys() []string {

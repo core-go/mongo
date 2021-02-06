@@ -15,7 +15,11 @@ type GenericService struct {
 	versionIndex int
 }
 
-func NewMongoGenericService(db *mongo.Database, modelType reflect.Type, collectionName string, idObjectId bool, versionField string, mapper Mapper) *GenericService {
+func NewMongoGenericService(db *mongo.Database, modelType reflect.Type, collectionName string, idObjectId bool, versionField string, options ...Mapper) *GenericService {
+	var mapper Mapper
+	if len(options) >= 1 {
+		mapper = options[0]
+	}
 	defaultViewService := NewMongoViewService(db, modelType, collectionName, idObjectId, mapper)
 	if len(versionField) > 0 {
 		index := FindFieldIndex(modelType, versionField)
@@ -25,11 +29,12 @@ func NewMongoGenericService(db *mongo.Database, modelType reflect.Type, collecti
 	}
 	return &GenericService{ViewService: defaultViewService, maps: MakeMapBson(modelType), versionField: "", versionIndex: -1}
 }
-func NewGenericServiceWithVersion(db *mongo.Database, modelType reflect.Type, collectionName string, version string) *GenericService {
-	return NewMongoGenericService(db, modelType, collectionName, false, version, nil)
-}
-func NewGenericService(db *mongo.Database, modelType reflect.Type, collectionName string) *GenericService {
-	return NewMongoGenericService(db, modelType, collectionName, false, "", nil)
+func NewGenericService(db *mongo.Database, modelType reflect.Type, collectionName string, options ...Mapper) *GenericService {
+	var mapper Mapper
+	if len(options) >= 1 {
+		mapper = options[0]
+	}
+	return NewMongoGenericService(db, modelType, collectionName, false, "", mapper)
 }
 
 func (m *GenericService) Insert(ctx context.Context, model interface{}) (int64, error) {

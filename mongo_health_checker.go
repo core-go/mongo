@@ -15,7 +15,13 @@ type MongoHealthChecker struct {
 	timeout time.Duration
 }
 
-func NewMongoHealthChecker(db *mongo.Database, name string, timeout time.Duration) *MongoHealthChecker {
+func NewMongoHealthChecker(db *mongo.Database, name string, timeouts ...time.Duration) *MongoHealthChecker {
+	var timeout time.Duration
+	if len(timeouts) >= 1 {
+		timeout = timeouts[0]
+	} else {
+		timeout = 4 * time.Second
+	}
 	return &MongoHealthChecker{db: db, name: name, timeout: timeout}
 }
 func NewHealthChecker(db *mongo.Database, options ...string) *MongoHealthChecker {
