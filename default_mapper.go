@@ -16,21 +16,30 @@ type DefaultMapper struct {
 	bsonName       string
 }
 
-func NewMapper(modelType reflect.Type, bsonName string, options ...string) *DefaultMapper {
-	var latitudeName, longitudeName string
+func NewMapper(modelType reflect.Type, options ...string) *DefaultMapper {
+	var bsonName, latitudeName, longitudeName string
 	if len(options) >= 1 && len(options[0]) > 0 {
-		latitudeName = options[0]
+		bsonName = options[0]
+	}
+	if len(options) >= 2 && len(options[1]) > 0 {
+		latitudeName = options[1]
 	} else {
 		latitudeName = "latitude"
 	}
-	if len(options) >= 2 && len(options[1]) > 0 {
-		longitudeName = options[1]
+	if len(options) >= 3 && len(options[2]) > 0 {
+		longitudeName = options[2]
 	} else {
 		longitudeName = "longitude"
 	}
 	latitudeIndex := FindFieldIndex(modelType, latitudeName)
 	longitudeIndex := FindFieldIndex(modelType, longitudeName)
-	bsonIndex := FindFieldIndex(modelType, bsonName)
+	var bsonIndex int
+	if len(bsonName) > 0 {
+		bsonIndex = FindFieldIndex(modelType, bsonName)
+	} else {
+		bsonIndex = FindLocationIndex(modelType)
+	}
+
 	return &DefaultMapper{
 		modelType:      modelType,
 		latitudeIndex:  latitudeIndex,

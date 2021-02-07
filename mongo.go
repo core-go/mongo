@@ -832,6 +832,17 @@ func UpsertMaps(ctx context.Context, collection *mongo.Collection, maps []map[st
 	return res, err
 }
 
+func FindLocationIndex(modelType reflect.Type) int {
+	numField := modelType.NumField()
+	for i := 0; i < numField; i++ {
+		t := modelType.Field(i).Type
+		k := MongoLocation{}
+		if t == reflect.TypeOf(&k) || t == reflect.TypeOf(k) {
+			return i
+		}
+	}
+	return -1
+}
 //For Get By Id
 func FindFieldIndex(modelType reflect.Type, fieldName string) int {
 	numField := modelType.NumField()
