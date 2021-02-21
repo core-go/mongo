@@ -11,7 +11,7 @@ import (
 
 type ViewService struct {
 	Collection *mongo.Collection
-	Mapper     Mapper
+	Map        func(ctx context.Context, model interface{}) (interface{}, error)
 	modelType  reflect.Type
 	idName     string
 	idIndex    int
@@ -19,10 +19,10 @@ type ViewService struct {
 	keys       []string
 }
 
-func NewMongoViewService(db *mongo.Database, modelType reflect.Type, collectionName string, idObjectId bool, options ...Mapper) *ViewService {
-	var mapper Mapper
+func NewMongoViewService(db *mongo.Database, modelType reflect.Type, collectionName string, idObjectId bool, options ...func(context.Context, interface{}) (interface{}, error)) *ViewService {
+	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
-		mapper = options[0]
+		mp = options[0]
 	}
 	idIndex, idName := FindIdField(modelType)
 	if len(idName) == 0 {
@@ -30,15 +30,15 @@ func NewMongoViewService(db *mongo.Database, modelType reflect.Type, collectionN
 	}
 	var idNames []string
 	idNames = append(idNames, idName)
-	return &ViewService{db.Collection(collectionName), mapper, modelType, idName, idIndex, idObjectId, idNames}
+	return &ViewService{db.Collection(collectionName), mp, modelType, idName, idIndex, idObjectId, idNames}
 }
 
-func NewViewService(db *mongo.Database, modelType reflect.Type, collectionName string, options ...Mapper) *ViewService {
-	var mapper Mapper
+func NewViewService(db *mongo.Database, modelType reflect.Type, collectionName string, options ...func(context.Context, interface{}) (interface{}, error)) *ViewService {
+	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
-		mapper = options[0]
+		mp = options[0]
 	}
-	return NewMongoViewService(db, modelType, collectionName, false, mapper)
+	return NewMongoViewService(db, modelType, collectionName, false, mp)
 }
 
 func (m *ViewService) Keys() []string {
@@ -50,12 +50,16 @@ func (m *ViewService) All(ctx context.Context) (interface{}, error) {
 	result := reflect.New(modelsType).Interface()
 	v, err := FindAndDecode(ctx, m.Collection, bson.M{}, result)
 	if v {
-		if m.Mapper != nil {
-			r2, er2 := m.Mapper.DbToModels(ctx, result)
-			if er2 != nil {
-				return result, err
+		if m.Map != nil {
+			valueModelObject := reflect.Indirect(reflect.ValueOf(result))
+			if valueModelObject.Kind() == reflect.Ptr {
+				valueModelObject = reflect.Indirect(valueModelObject)
 			}
-			return r2, err
+			if valueModelObject.Kind() == reflect.Slice {
+				for i := 0; i < valueModelObject.Len(); i++ {
+					m.Map(ctx, valueModelObject.Index(i))
+				}
+			}
 		}
 		return result, err
 	}
@@ -67,8 +71,8 @@ func (m *ViewService) Load(ctx context.Context, id interface{}) (interface{}, er
 	if er1 != nil {
 		return r, er1
 	}
-	if m.Mapper != nil {
-		r2, er2 := m.Mapper.DbToModel(ctx, r)
+	if m.Map != nil {
+		r2, er2 := m.Map(ctx, r)
 		if er2 != nil {
 			return r, er2
 		}
@@ -86,8 +90,8 @@ func (m *ViewService) LoadAndDecode(ctx context.Context, id interface{}, result 
 		}
 		query := bson.M{"_id": objectId}
 		ok, er0 := FindOneAndDecode(ctx, m.Collection, query, result)
-		if ok && er0 == nil && m.Mapper != nil {
-			_, er2 := m.Mapper.DbToModel(ctx, result)
+		if ok && er0 == nil && m.Map != nil {
+			_, er2 := m.Map(ctx, result)
 			if er2 != nil {
 				return ok, er2
 			}
@@ -96,8 +100,8 @@ func (m *ViewService) LoadAndDecode(ctx context.Context, id interface{}, result 
 	}
 	query := bson.M{"_id": id}
 	ok, er2 := FindOneAndDecode(ctx, m.Collection, query, result)
-	if ok && er2 == nil && m.Mapper != nil {
-		_, er3 := m.Mapper.DbToModel(ctx, result)
+	if ok && er2 == nil && m.Map != nil {
+		_, er3 := m.Map(ctx, result)
 		if er3 != nil {
 			return ok, er3
 		}

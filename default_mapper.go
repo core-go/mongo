@@ -84,7 +84,7 @@ func (s *DefaultMapper) ModelToDb(ctx context.Context, model interface{}) (inter
 	}
 
 	if valueModelObject.Kind() == reflect.Struct {
-		s.doLocationToBson(valueModelObject)
+		LocationToBson(valueModelObject, s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
 	}
 	return model, nil
 }
@@ -97,7 +97,7 @@ func (s *DefaultMapper) ModelsToDb(ctx context.Context, model interface{}) (inte
 
 	if valueModelObject.Kind() == reflect.Slice {
 		for i := 0; i < valueModelObject.Len(); i++ {
-			s.doLocationToBson(valueModelObject.Index(i))
+			LocationToBson(valueModelObject.Index(i), s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
 		}
 	}
 	return model, nil
@@ -139,18 +139,18 @@ func (s *DefaultMapper) doBsonToLocation(value reflect.Value) {
 	}
 }
 
-func (s *DefaultMapper) doLocationToBson(value reflect.Value) {
-	latitudeField := reflect.Indirect(value).Field(s.latitudeIndex)
+func LocationToBson(value reflect.Value, bsonIndex int, latitudeIndex int, longitudeIndex int) {
+	latitudeField := reflect.Indirect(value).Field(latitudeIndex)
 	if latitudeField.Kind() == reflect.Ptr {
 		latitudeField = reflect.Indirect(latitudeField)
 	}
 
-	longitudeField := reflect.Indirect(value).Field(s.longitudeIndex)
+	longitudeField := reflect.Indirect(value).Field(longitudeIndex)
 	if longitudeField.Kind() == reflect.Ptr {
 		longitudeField = reflect.Indirect(longitudeField)
 	}
 
-	locationField := reflect.Indirect(value).Field(s.bsonIndex)
+	locationField := reflect.Indirect(value).Field(bsonIndex)
 	if locationField.Kind() == reflect.Ptr {
 		locationField = reflect.Indirect(locationField)
 	}

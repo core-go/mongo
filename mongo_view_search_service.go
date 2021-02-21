@@ -1,24 +1,25 @@
 package mongo
 
 import (
+	"context"
 	"go.mongodb.org/mongo-driver/mongo"
 	"reflect"
 )
 
-func NewMongoViewSearchService(db *mongo.Database, modelType reflect.Type, collection string, searchBuilder SearchResultBuilder, idObjectId bool, options ...Mapper) (*ViewService, *SearchService) {
-	var mapper Mapper
+func NewMongoViewSearchService(db *mongo.Database, modelType reflect.Type, collection string, searchBuilder SearchResultBuilder, idObjectId bool, options ...func(context.Context, interface{}) (interface{}, error)) (*ViewService, *SearchService) {
+	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
-		mapper = options[0]
+		mp = options[0]
 	}
-	viewService := NewMongoViewService(db, modelType, collection, idObjectId, mapper)
+	viewService := NewMongoViewService(db, modelType, collection, idObjectId, mp)
 	searchService := NewSearchService(db, modelType, collection, searchBuilder)
 	return viewService, searchService
 }
 
-func NewViewSearchService(db *mongo.Database, modelType reflect.Type, collection string, searchBuilder SearchResultBuilder, options ...Mapper) (*ViewService, *SearchService) {
-	var mapper Mapper
+func NewViewSearchService(db *mongo.Database, modelType reflect.Type, collection string, searchBuilder SearchResultBuilder, options ...func(context.Context, interface{}) (interface{}, error)) (*ViewService, *SearchService) {
+	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
-		mapper = options[0]
+		mp = options[0]
 	}
-	return NewMongoViewSearchService(db, modelType, collection, searchBuilder, false, mapper)
+	return NewMongoViewSearchService(db, modelType, collection, searchBuilder, false, mp)
 }

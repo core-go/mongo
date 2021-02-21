@@ -10,9 +10,10 @@ import (
 
 type GenericService struct {
 	*ViewService
-	maps map[string]string
+	maps         map[string]string
 	versionField string
 	versionIndex int
+	Mapper       Mapper
 }
 
 func NewMongoGenericService(db *mongo.Database, modelType reflect.Type, collectionName string, idObjectId bool, versionField string, options ...Mapper) *GenericService {
@@ -20,7 +21,7 @@ func NewMongoGenericService(db *mongo.Database, modelType reflect.Type, collecti
 	if len(options) >= 1 {
 		mapper = options[0]
 	}
-	defaultViewService := NewMongoViewService(db, modelType, collectionName, idObjectId, mapper)
+	defaultViewService := NewMongoViewService(db, modelType, collectionName, idObjectId, mapper.DbToModel)
 	if len(versionField) > 0 {
 		index := FindFieldIndex(modelType, versionField)
 		if index >= 0 {
@@ -38,7 +39,7 @@ func NewGenericService(db *mongo.Database, modelType reflect.Type, collectionNam
 }
 
 func (m *GenericService) Insert(ctx context.Context, model interface{}) (int64, error) {
-	if m.Mapper != nil {
+	if m.Map != nil {
 		m2, err := m.Mapper.ModelToDb(ctx, model)
 		if err != nil {
 			return 0, err
@@ -55,7 +56,7 @@ func (m *GenericService) Insert(ctx context.Context, model interface{}) (int64, 
 }
 
 func (m *GenericService) Update(ctx context.Context, model interface{}) (int64, error) {
-	if m.Mapper != nil {
+	if m.Map != nil {
 		m2, err := m.Mapper.ModelToDb(ctx, model)
 		if err != nil {
 			return 0, err
@@ -74,7 +75,7 @@ func (m *GenericService) Update(ctx context.Context, model interface{}) (int64, 
 }
 
 func (m *GenericService) Patch(ctx context.Context, model map[string]interface{}) (int64, error) {
-	if m.Mapper != nil {
+	if m.Map != nil {
 		m2, err := m.Mapper.ModelToDb(ctx, model)
 		if err != nil {
 			return 0, err
@@ -97,7 +98,7 @@ func (m *GenericService) Patch(ctx context.Context, model map[string]interface{}
 }
 
 func (m *GenericService) Save(ctx context.Context, model interface{}) (int64, error) {
-	if m.Mapper != nil {
+	if m.Map != nil {
 		m2, err := m.Mapper.ModelToDb(ctx, model)
 		if err != nil {
 			return 0, err

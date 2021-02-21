@@ -14,14 +14,15 @@ type DefaultSearchResultBuilder struct {
 	QueryBuilder      QueryBuilder
 	BuildSort         func(s string, modelType reflect.Type) bson.M
 	ExtractSearchInfo func(m interface{}) (string, int64, int64, int64, error)
-	Mapper            Mapper
+	Map               func(ctx context.Context, model interface{}) (interface{}, error)
 }
-func NewSearchResultBuilderWithMapper(db *mongo.Database, queryBuilder QueryBuilder, buildSort func(s string, modelType reflect.Type) bson.M, extractSearchInfo func(m interface{}) (string, int64, int64, int64, error), mapper Mapper) *DefaultSearchResultBuilder {
-	builder := &DefaultSearchResultBuilder{Database: db, QueryBuilder: queryBuilder, BuildSort: buildSort, ExtractSearchInfo: extractSearchInfo, Mapper: mapper}
+
+func NewSearchResultBuilderWithMapper(db *mongo.Database, queryBuilder QueryBuilder, buildSort func(s string, modelType reflect.Type) bson.M, extractSearchInfo func(m interface{}) (string, int64, int64, int64, error), mp func(context.Context, interface{}) (interface{}, error)) *DefaultSearchResultBuilder {
+	builder := &DefaultSearchResultBuilder{Database: db, QueryBuilder: queryBuilder, BuildSort: buildSort, ExtractSearchInfo: extractSearchInfo, Map: mp}
 	return builder
 }
-func NewMongoSearchResultBuilder(db *mongo.Database, queryBuilder QueryBuilder, extractSearchInfo func(m interface{}) (string, int64, int64, int64, error), mapper Mapper) *DefaultSearchResultBuilder {
-	return NewSearchResultBuilderWithMapper(db, queryBuilder, BuildSort, extractSearchInfo, mapper)
+func NewMongoSearchResultBuilder(db *mongo.Database, queryBuilder QueryBuilder, extractSearchInfo func(m interface{}) (string, int64, int64, int64, error), mp func(context.Context, interface{}) (interface{}, error)) *DefaultSearchResultBuilder {
+	return NewSearchResultBuilderWithMapper(db, queryBuilder, BuildSort, extractSearchInfo, mp)
 }
 func NewSearchResultBuilder(db *mongo.Database, queryBuilder QueryBuilder, extractSearchInfo func(m interface{}) (string, int64, int64, int64, error)) *DefaultSearchResultBuilder {
 	return NewSearchResultBuilderWithMapper(db, queryBuilder, BuildSort, extractSearchInfo, nil)
@@ -36,9 +37,9 @@ func (b *DefaultSearchResultBuilder) BuildSearchResult(ctx context.Context, coll
 		return nil, 0, err
 	}
 	sort = b.BuildSort(s, modelType)
-	return BuildSearchResult(ctx, collection, modelType, query, fields, sort, pageIndex, pageSize, firstPageSize, b.Mapper)
+	return BuildSearchResult(ctx, collection, modelType, query, fields, sort, pageIndex, pageSize, firstPageSize, b.Map)
 }
-func BuildSearchResult(ctx context.Context, collection *mongo.Collection, modelType reflect.Type, query bson.M, fields bson.M, sort bson.M, pageIndex int64, pageSize int64, initPageSize int64, mapper Mapper) (interface{}, int64, error) {
+func BuildSearchResult(ctx context.Context, collection *mongo.Collection, modelType reflect.Type, query bson.M, fields bson.M, sort bson.M, pageIndex int64, pageSize int64, initPageSize int64, mp func(context.Context, interface{}) (interface{}, error)) (interface{}, int64, error) {
 	optionsFind := options.Find()
 	optionsFind.Projection = fields
 	if initPageSize > 0 {
@@ -73,11 +74,22 @@ func BuildSearchResult(ctx context.Context, collection *mongo.Collection, modelT
 	if er2 != nil {
 		return results, 0, er2
 	}
-	if mapper == nil {
+	if mp == nil {
 		return results, count, nil
 	}
-	r2, er3 := mapper.DbToModels(ctx, results)
-	return r2, count, er3
+	valueModelObject := reflect.Indirect(reflect.ValueOf(results))
+	if valueModelObject.Kind() == reflect.Ptr {
+		valueModelObject = reflect.Indirect(valueModelObject)
+	}
+	if valueModelObject.Kind() == reflect.Slice {
+		for i := 0; i < valueModelObject.Len(); i++ {
+			_, er3 := mp(ctx, valueModelObject.Index(i))
+			if er3 != nil {
+				return results, count, er3
+			}
+		}
+	}
+	return results, count, nil
 }
 
 func BuildSort(s string, modelType reflect.Type) bson.M {
