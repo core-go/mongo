@@ -12,11 +12,16 @@ import (
 )
 
 type DefaultQueryBuilder struct {
+	ModelType reflect.Type
 }
-func NewQueryBuilder() *DefaultQueryBuilder {
-	return &DefaultQueryBuilder{}
+
+func NewQueryBuilder(resultModelType reflect.Type) *DefaultQueryBuilder {
+	return &DefaultQueryBuilder{ModelType: resultModelType}
 }
-func (b *DefaultQueryBuilder) BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
+func (b *DefaultQueryBuilder) BuildQuery(sm interface{}) (bson.M, bson.M) {
+	return BuildQuery(sm, b.ModelType)
+}
+func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 	var query = bson.M{}
 	var fields = bson.M{}
 
@@ -27,8 +32,8 @@ func (b *DefaultQueryBuilder) BuildQuery(sm interface{}, resultModelType reflect
 	value := reflect.Indirect(reflect.ValueOf(sm))
 	numField := value.NumField()
 	var keyword string
-	keywordFormat := map[string]string {
-		"prefix": "^%v",
+	keywordFormat := map[string]string{
+		"prefix":  "^%v",
 		"contain": "\\w*%v\\w*",
 	}
 	for i := 0; i < numField; i++ {
@@ -83,7 +88,7 @@ func (b *DefaultQueryBuilder) BuildQuery(sm interface{}, resultModelType reflect
 			actionDateQuery := bson.M{}
 			if rangeDate.StartDate == nil && rangeDate.EndDate == nil {
 				continue
-			}  else if rangeDate.StartDate == nil {
+			} else if rangeDate.StartDate == nil {
 				actionDateQuery["$lte"] = rangeDate.EndDate
 			} else if rangeDate.EndDate == nil {
 				actionDateQuery["$gte"] = rangeDate.StartDate
@@ -97,7 +102,7 @@ func (b *DefaultQueryBuilder) BuildQuery(sm interface{}, resultModelType reflect
 			actionDateQuery := bson.M{}
 			if rangeDate.StartDate == nil && rangeDate.EndDate == nil {
 				continue
-			}  else if rangeDate.StartDate == nil {
+			} else if rangeDate.StartDate == nil {
 				actionDateQuery["$lte"] = rangeDate.EndDate
 			} else if rangeDate.EndDate == nil {
 				actionDateQuery["$gte"] = rangeDate.StartDate
@@ -153,7 +158,7 @@ func (b *DefaultQueryBuilder) BuildQuery(sm interface{}, resultModelType reflect
 			var searchValue string
 			if value.Field(i).Len() > 0 {
 				const defaultKey = "contain"
-				if key,ok := value.Type().Field(i).Tag.Lookup("match"); ok {
+				if key, ok := value.Type().Field(i).Tag.Lookup("match"); ok {
 					if format, exist := keywordFormat[key]; exist {
 						searchValue = fmt.Sprintf(format, value.Field(i).Interface())
 					} else {
@@ -164,7 +169,7 @@ func (b *DefaultQueryBuilder) BuildQuery(sm interface{}, resultModelType reflect
 					searchValue = fmt.Sprintf(format, value.Field(i).Interface())
 				}
 			} else if len(keyword) > 0 {
-				if key,ok := value.Type().Field(i).Tag.Lookup("keyword"); ok {
+				if key, ok := value.Type().Field(i).Tag.Lookup("keyword"); ok {
 					if format, exist := keywordFormat[key]; exist {
 						searchValue = fmt.Sprintf(format, keyword)
 
@@ -179,7 +184,7 @@ func (b *DefaultQueryBuilder) BuildQuery(sm interface{}, resultModelType reflect
 			}
 		} else {
 			t := value.Field(i).Kind().String()
-			if _, ok := x.(*search.SearchModel); t == "bool" || (strings.Contains(t, "int") && x != 0) || (strings.Contains(t, "float") && x != 0)  || (!ok && t == "ptr" &&
+			if _, ok := x.(*search.SearchModel); t == "bool" || (strings.Contains(t, "int") && x != 0) || (strings.Contains(t, "float") && x != 0) || (!ok && t == "ptr" &&
 				value.Field(i).Pointer() != 0) {
 				columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
 				if len(columnName) > 0 {

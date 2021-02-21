@@ -9,7 +9,7 @@ import (
 )
 
 type GenericService struct {
-	*ViewService
+	*MongoLoader
 	maps         map[string]string
 	versionField string
 	versionIndex int
@@ -21,14 +21,14 @@ func NewMongoGenericService(db *mongo.Database, modelType reflect.Type, collecti
 	if len(options) >= 1 {
 		mapper = options[0]
 	}
-	defaultViewService := NewMongoViewService(db, modelType, collectionName, idObjectId, mapper.DbToModel)
+	defaultViewService := NewMongoLoader(db, modelType, collectionName, idObjectId, mapper.DbToModel)
 	if len(versionField) > 0 {
 		index := FindFieldIndex(modelType, versionField)
 		if index >= 0 {
-			return &GenericService{ViewService: defaultViewService, maps: MakeMapBson(modelType), versionField: versionField, versionIndex: index}
+			return &GenericService{MongoLoader: defaultViewService, maps: MakeMapBson(modelType), versionField: versionField, versionIndex: index}
 		}
 	}
-	return &GenericService{ViewService: defaultViewService, maps: MakeMapBson(modelType), versionField: "", versionIndex: -1}
+	return &GenericService{MongoLoader: defaultViewService, maps: MakeMapBson(modelType), versionField: "", versionIndex: -1}
 }
 func NewGenericService(db *mongo.Database, modelType reflect.Type, collectionName string, options ...Mapper) *GenericService {
 	var mapper Mapper

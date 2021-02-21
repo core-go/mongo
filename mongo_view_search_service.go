@@ -6,17 +6,17 @@ import (
 	"reflect"
 )
 
-func NewMongoViewSearchService(db *mongo.Database, modelType reflect.Type, collection string, searchBuilder SearchResultBuilder, idObjectId bool, options ...func(context.Context, interface{}) (interface{}, error)) (*ViewService, *SearchService) {
+func NewMongoViewSearchService(db *mongo.Database, modelType reflect.Type, collection string, searchBuilder SearchResultBuilder, idObjectId bool, options ...func(context.Context, interface{}) (interface{}, error)) (*MongoLoader, *SearchService) {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
 		mp = options[0]
 	}
-	viewService := NewMongoViewService(db, modelType, collection, idObjectId, mp)
+	viewService := NewMongoLoader(db, modelType, collection, idObjectId, mp)
 	searchService := NewSearchService(db, modelType, collection, searchBuilder)
 	return viewService, searchService
 }
 
-func NewViewSearchService(db *mongo.Database, modelType reflect.Type, collection string, searchBuilder SearchResultBuilder, options ...func(context.Context, interface{}) (interface{}, error)) (*ViewService, *SearchService) {
+func NewViewSearchService(db *mongo.Database, modelType reflect.Type, collection string, searchBuilder SearchResultBuilder, options ...func(context.Context, interface{}) (interface{}, error)) (*MongoLoader, *SearchService) {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
 		mp = options[0]

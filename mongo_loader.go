@@ -9,7 +9,7 @@ import (
 	"reflect"
 )
 
-type ViewService struct {
+type MongoLoader struct {
 	Collection *mongo.Collection
 	Map        func(ctx context.Context, model interface{}) (interface{}, error)
 	modelType  reflect.Type
@@ -19,33 +19,33 @@ type ViewService struct {
 	keys       []string
 }
 
-func NewMongoViewService(db *mongo.Database, modelType reflect.Type, collectionName string, idObjectId bool, options ...func(context.Context, interface{}) (interface{}, error)) *ViewService {
+func NewMongoLoader(db *mongo.Database, modelType reflect.Type, collectionName string, idObjectId bool, options ...func(context.Context, interface{}) (interface{}, error)) *MongoLoader {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
 		mp = options[0]
 	}
 	idIndex, idName := FindIdField(modelType)
 	if len(idName) == 0 {
-		log.Println(modelType.Name() + " repository can't use functions that need Id value (Ex GetById, ExistsById, Save, Update) because don't have any fields of " + modelType.Name() + " struct define _id bson tag.")
+		log.Println(modelType.Name() + " loader can't use functions that need Id value (Ex GetById, ExistsById, Save, Update) because don't have any fields of " + modelType.Name() + " struct define _id bson tag.")
 	}
 	var idNames []string
 	idNames = append(idNames, idName)
-	return &ViewService{db.Collection(collectionName), mp, modelType, idName, idIndex, idObjectId, idNames}
+	return &MongoLoader{db.Collection(collectionName), mp, modelType, idName, idIndex, idObjectId, idNames}
 }
 
-func NewViewService(db *mongo.Database, modelType reflect.Type, collectionName string, options ...func(context.Context, interface{}) (interface{}, error)) *ViewService {
+func NewLoader(db *mongo.Database, modelType reflect.Type, collectionName string, options ...func(context.Context, interface{}) (interface{}, error)) *MongoLoader {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
 		mp = options[0]
 	}
-	return NewMongoViewService(db, modelType, collectionName, false, mp)
+	return NewMongoLoader(db, modelType, collectionName, false, mp)
 }
 
-func (m *ViewService) Keys() []string {
+func (m *MongoLoader) Keys() []string {
 	return m.keys
 }
 
-func (m *ViewService) All(ctx context.Context) (interface{}, error) {
+func (m *MongoLoader) All(ctx context.Context) (interface{}, error) {
 	modelsType := reflect.Zero(reflect.SliceOf(m.modelType)).Type()
 	result := reflect.New(modelsType).Interface()
 	v, err := FindAndDecode(ctx, m.Collection, bson.M{}, result)
@@ -66,7 +66,7 @@ func (m *ViewService) All(ctx context.Context) (interface{}, error) {
 	return nil, err
 }
 
-func (m *ViewService) Load(ctx context.Context, id interface{}) (interface{}, error) {
+func (m *MongoLoader) Load(ctx context.Context, id interface{}) (interface{}, error) {
 	r, er1 := FindOneWithId(ctx, m.Collection, id, m.idObjectId, m.modelType)
 	if er1 != nil {
 		return r, er1
@@ -81,7 +81,7 @@ func (m *ViewService) Load(ctx context.Context, id interface{}) (interface{}, er
 	return r, er1
 }
 
-func (m *ViewService) LoadAndDecode(ctx context.Context, id interface{}, result interface{}) (bool, error) {
+func (m *MongoLoader) LoadAndDecode(ctx context.Context, id interface{}, result interface{}) (bool, error) {
 	if m.idObjectId {
 		objId := id.(string)
 		objectId, err := primitive.ObjectIDFromHex(objId)
@@ -109,6 +109,6 @@ func (m *ViewService) LoadAndDecode(ctx context.Context, id interface{}, result 
 	return ok, er2
 }
 
-func (m *ViewService) Exist(ctx context.Context, id interface{}) (bool, error) {
+func (m *MongoLoader) Exist(ctx context.Context, id interface{}) (bool, error) {
 	return Exist(ctx, m.Collection, id, m.idObjectId)
 }
