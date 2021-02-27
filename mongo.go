@@ -1222,3 +1222,26 @@ func GetSortType(sortType string) int {
 		return 1
 	}
 }
+
+func dbToModels(ctx context.Context, models interface{}, mp func(context.Context, interface{}) (interface{}, error)) (interface{}, error) {
+	valueModelObject := reflect.Indirect(reflect.ValueOf(models))
+	if valueModelObject.Kind() == reflect.Ptr {
+		valueModelObject = reflect.Indirect(valueModelObject)
+	}
+	if valueModelObject.Kind() == reflect.Slice {
+		le := valueModelObject.Len()
+		for i := 0; i < le; i++ {
+			x := valueModelObject.Index(i)
+			k := x.Kind()
+			if k == reflect.Struct {
+				y := x.Addr().Interface()
+				mp(ctx, y)
+			} else  {
+				y := x.Interface()
+				mp(ctx, y)
+			}
+
+		}
+	}
+	return models, nil
+}

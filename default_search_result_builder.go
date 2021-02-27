@@ -93,19 +93,8 @@ func BuildSearchResult(ctx context.Context, collection *mongo.Collection, modelT
 	if mp == nil {
 		return results, count, nil
 	}
-	valueModelObject := reflect.Indirect(reflect.ValueOf(results))
-	if valueModelObject.Kind() == reflect.Ptr {
-		valueModelObject = reflect.Indirect(valueModelObject)
-	}
-	if valueModelObject.Kind() == reflect.Slice {
-		for i := 0; i < valueModelObject.Len(); i++ {
-			_, er3 := mp(ctx, valueModelObject.Index(i))
-			if er3 != nil {
-				return results, count, er3
-			}
-		}
-	}
-	return results, count, nil
+	r2, er3 := dbToModels(ctx, results, mp)
+	return r2, count, er3
 }
 
 func BuildSort(s string, modelType reflect.Type) bson.M {

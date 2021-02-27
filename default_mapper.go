@@ -24,12 +24,12 @@ func NewMapper(modelType reflect.Type, options ...string) *DefaultMapper {
 	if len(options) >= 2 && len(options[1]) > 0 {
 		latitudeName = options[1]
 	} else {
-		latitudeName = "latitude"
+		latitudeName = "Latitude"
 	}
 	if len(options) >= 3 && len(options[2]) > 0 {
 		longitudeName = options[2]
 	} else {
-		longitudeName = "longitude"
+		longitudeName = "Longitude"
 	}
 	latitudeIndex := FindFieldIndex(modelType, latitudeName)
 	longitudeIndex := FindFieldIndex(modelType, longitudeName)
@@ -56,8 +56,8 @@ func (s *DefaultMapper) DbToModel(ctx context.Context, model interface{}) (inter
 	if valueModelObject.Kind() == reflect.Ptr {
 		valueModelObject = reflect.Indirect(valueModelObject)
 	}
-
-	if valueModelObject.Kind() == reflect.Map || valueModelObject.Kind() == reflect.Struct {
+	k := valueModelObject.Kind()
+	if k == reflect.Map || k == reflect.Struct {
 		s.doBsonToLocation(valueModelObject)
 	}
 	return model, nil
@@ -118,12 +118,13 @@ func (s *DefaultMapper) doBsonToLocation(value reflect.Value) {
 	}
 
 	if value.Kind() == reflect.Struct {
-		arrLatLong := reflect.Indirect(reflect.Indirect(value).Field(s.bsonIndex)).FieldByName("Coordinates").Interface()
+		x := reflect.Indirect(value)
+		arrLatLong := reflect.Indirect(x.Field(s.bsonIndex)).FieldByName("Coordinates").Interface()
 		latitude := reflect.Indirect(reflect.ValueOf(arrLatLong)).Index(0).Interface()
 		longitude := reflect.Indirect(reflect.ValueOf(arrLatLong)).Index(1).Interface()
 
-		reflect.Indirect(value).Field(s.latitudeIndex).Set(reflect.ValueOf(latitude))
-		reflect.Indirect(value).Field(s.longitudeIndex).Set(reflect.ValueOf(longitude))
+		x.Field(s.latitudeIndex).Set(reflect.ValueOf(latitude))
+		x.Field(s.longitudeIndex).Set(reflect.ValueOf(longitude))
 	}
 
 	if value.Kind() == reflect.Map {

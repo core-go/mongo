@@ -8,7 +8,7 @@ import (
 	"reflect"
 )
 
-type GenericService struct {
+type MongoWriter struct {
 	*MongoLoader
 	maps         map[string]string
 	versionField string
@@ -16,29 +16,29 @@ type GenericService struct {
 	Mapper       Mapper
 }
 
-func NewMongoGenericService(db *mongo.Database, modelType reflect.Type, collectionName string, idObjectId bool, versionField string, options ...Mapper) *GenericService {
+func NewMongoWriter(db *mongo.Database, modelType reflect.Type, collectionName string, idObjectId bool, versionField string, options ...Mapper) *MongoWriter {
 	var mapper Mapper
 	if len(options) >= 1 {
 		mapper = options[0]
 	}
-	defaultViewService := NewMongoLoader(db, modelType, collectionName, idObjectId, mapper.DbToModel)
+	loader := NewMongoLoader(db, modelType, collectionName, idObjectId, mapper.DbToModel)
 	if len(versionField) > 0 {
 		index := FindFieldIndex(modelType, versionField)
 		if index >= 0 {
-			return &GenericService{MongoLoader: defaultViewService, maps: MakeMapBson(modelType), versionField: versionField, versionIndex: index}
+			return &MongoWriter{MongoLoader: loader, maps: MakeMapBson(modelType), versionField: versionField, versionIndex: index}
 		}
 	}
-	return &GenericService{MongoLoader: defaultViewService, maps: MakeMapBson(modelType), versionField: "", versionIndex: -1}
+	return &MongoWriter{MongoLoader: loader, maps: MakeMapBson(modelType), versionField: "", versionIndex: -1}
 }
-func NewGenericService(db *mongo.Database, modelType reflect.Type, collectionName string, options ...Mapper) *GenericService {
+func NewWriter(db *mongo.Database, modelType reflect.Type, collectionName string, options ...Mapper) *MongoWriter {
 	var mapper Mapper
 	if len(options) >= 1 {
 		mapper = options[0]
 	}
-	return NewMongoGenericService(db, modelType, collectionName, false, "", mapper)
+	return NewMongoWriter(db, modelType, collectionName, false, "", mapper)
 }
 
-func (m *GenericService) Insert(ctx context.Context, model interface{}) (int64, error) {
+func (m *MongoWriter) Insert(ctx context.Context, model interface{}) (int64, error) {
 	if m.Map != nil {
 		m2, err := m.Mapper.ModelToDb(ctx, model)
 		if err != nil {
@@ -55,7 +55,7 @@ func (m *GenericService) Insert(ctx context.Context, model interface{}) (int64, 
 	return InsertOne(ctx, m.Collection, model)
 }
 
-func (m *GenericService) Update(ctx context.Context, model interface{}) (int64, error) {
+func (m *MongoWriter) Update(ctx context.Context, model interface{}) (int64, error) {
 	if m.Map != nil {
 		m2, err := m.Mapper.ModelToDb(ctx, model)
 		if err != nil {
@@ -74,7 +74,7 @@ func (m *GenericService) Update(ctx context.Context, model interface{}) (int64, 
 	return UpdateOne(ctx, m.Collection, model, idQuery)
 }
 
-func (m *GenericService) Patch(ctx context.Context, model map[string]interface{}) (int64, error) {
+func (m *MongoWriter) Patch(ctx context.Context, model map[string]interface{}) (int64, error) {
 	if m.Map != nil {
 		m2, err := m.Mapper.ModelToDb(ctx, model)
 		if err != nil {
@@ -97,7 +97,7 @@ func (m *GenericService) Patch(ctx context.Context, model map[string]interface{}
 	return PatchOne(ctx, m.Collection, MapToBson(model, m.maps), idQuery)
 }
 
-func (m *GenericService) Save(ctx context.Context, model interface{}) (int64, error) {
+func (m *MongoWriter) Save(ctx context.Context, model interface{}) (int64, error) {
 	if m.Map != nil {
 		m2, err := m.Mapper.ModelToDb(ctx, model)
 		if err != nil {
@@ -116,7 +116,7 @@ func (m *GenericService) Save(ctx context.Context, model interface{}) (int64, er
 	return UpsertOne(ctx, m.Collection, idQuery, model)
 }
 
-func (m *GenericService) Delete(ctx context.Context, id interface{}) (int64, error) {
+func (m *MongoWriter) Delete(ctx context.Context, id interface{}) (int64, error) {
 	query := bson.M{"_id": id}
 	return DeleteOne(ctx, m.Collection, query)
 }

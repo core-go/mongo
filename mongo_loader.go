@@ -51,15 +51,7 @@ func (m *MongoLoader) All(ctx context.Context) (interface{}, error) {
 	v, err := FindAndDecode(ctx, m.Collection, bson.M{}, result)
 	if v {
 		if m.Map != nil {
-			valueModelObject := reflect.Indirect(reflect.ValueOf(result))
-			if valueModelObject.Kind() == reflect.Ptr {
-				valueModelObject = reflect.Indirect(valueModelObject)
-			}
-			if valueModelObject.Kind() == reflect.Slice {
-				for i := 0; i < valueModelObject.Len(); i++ {
-					m.Map(ctx, valueModelObject.Index(i))
-				}
-			}
+			return dbToModels(ctx, result, m.Map)
 		}
 		return result, err
 	}
