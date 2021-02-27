@@ -16,7 +16,7 @@ type MongoWriter struct {
 	Mapper       Mapper
 }
 
-func NewMongoWriter(db *mongo.Database, modelType reflect.Type, collectionName string, idObjectId bool, versionField string, options ...Mapper) *MongoWriter {
+func NewWriterWithVersion(db *mongo.Database, modelType reflect.Type, collectionName string, idObjectId bool, versionField string, options ...Mapper) *MongoWriter {
 	var mapper Mapper
 	if len(options) >= 1 {
 		mapper = options[0]
@@ -30,12 +30,11 @@ func NewMongoWriter(db *mongo.Database, modelType reflect.Type, collectionName s
 	}
 	return &MongoWriter{MongoLoader: loader, maps: MakeMapBson(modelType), versionField: "", versionIndex: -1}
 }
+func NewMongoWriter(db *mongo.Database, modelType reflect.Type, collectionName string, versionField string, options ...Mapper) *MongoWriter {
+	return NewWriterWithVersion(db, modelType, collectionName, false, versionField, options...)
+}
 func NewWriter(db *mongo.Database, modelType reflect.Type, collectionName string, options ...Mapper) *MongoWriter {
-	var mapper Mapper
-	if len(options) >= 1 {
-		mapper = options[0]
-	}
-	return NewMongoWriter(db, modelType, collectionName, false, "", mapper)
+	return NewWriterWithVersion(db, modelType, collectionName, false, "", options...)
 }
 
 func (m *MongoWriter) Insert(ctx context.Context, model interface{}) (int64, error) {

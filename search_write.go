@@ -10,7 +10,7 @@ func NewMongoSearchWriter(db *mongo.Database, modelType reflect.Type, collection
 	if len(options) >= 1 {
 		mapper = options[0]
 	}
-	writer := NewMongoWriter(db, modelType, collectionName, idObjectId, versionField, mapper)
+	writer := NewWriterWithVersion(db, modelType, collectionName, idObjectId, versionField, mapper)
 	searcher := NewSearcher(db, modelType, collectionName, searchBuilder)
 	return writer, searcher
 }
@@ -19,7 +19,7 @@ func NewSearchWriterWithVersion(db *mongo.Database, modelType reflect.Type, coll
 	if len(options) >= 1 {
 		mapper = options[0]
 	}
-	writer := NewMongoWriter(db, modelType, collectionName, false, version, mapper)
+	writer := NewWriterWithVersion(db, modelType, collectionName, false, version, mapper)
 	searcher := NewSearcher(db, modelType, collectionName, searchBuilder)
 	return writer, searcher
 }
@@ -28,7 +28,7 @@ func NewSearchWriter(db *mongo.Database, modelType reflect.Type, collectionName 
 	if len(options) >= 1 {
 		mapper = options[0]
 	}
-	writer := NewMongoWriter(db, modelType, collectionName, false, "", mapper)
+	writer := NewWriterWithVersion(db, modelType, collectionName, false, "", mapper)
 	searcher := NewSearcher(db, modelType, collectionName, searchBuilder)
 	return writer, searcher
 }
