@@ -9,13 +9,13 @@ import (
 	"time"
 )
 
-type PasscodeService struct {
+type PasscodeRepository struct {
 	collection *mongo.Collection
 	passcodeName  string
 	expiredAtName string
 }
 
-func NewPasscodeService(db *mongo.Database, collectionName string, options ...string) *PasscodeService {
+func NewPasscodeRepository(db *mongo.Database, collectionName string, options ...string) *PasscodeRepository {
 	var passcodeName, expiredAtName string
 	if len(options) >= 1 && len(options[0]) > 0 {
 		expiredAtName = options[0]
@@ -27,21 +27,21 @@ func NewPasscodeService(db *mongo.Database, collectionName string, options ...st
 	} else {
 		passcodeName = "passcode"
 	}
-	return &PasscodeService{db.Collection(collectionName), passcodeName, expiredAtName}
+	return &PasscodeRepository{db.Collection(collectionName), passcodeName, expiredAtName}
 }
 
-func (s *PasscodeService) Save(ctx context.Context, id string, passcode string, expiredAt time.Time) (int64, error) {
+func (r *PasscodeRepository) Save(ctx context.Context, id string, passcode string, expiredAt time.Time) (int64, error) {
 	pass := make(map[string]interface{})
 	pass["_id"] = id
-	pass[s.passcodeName] = passcode
-	pass[s.expiredAtName] = expiredAt
+	pass[r.passcodeName] = passcode
+	pass[r.expiredAtName] = expiredAt
 	idQuery := bson.M{"_id": id}
-	return UpsertOne(ctx, s.collection, idQuery, pass)
+	return UpsertOne(ctx, r.collection, idQuery, pass)
 }
 
-func (s *PasscodeService) Load(ctx context.Context, id string) (string, time.Time, error) {
+func (r *PasscodeRepository) Load(ctx context.Context, id string) (string, time.Time, error) {
 	idQuery := bson.M{"_id": id}
-	x := s.collection.FindOne(ctx, idQuery)
+	x := r.collection.FindOne(ctx, idQuery)
 	er1 := x.Err()
 	if er1 != nil {
 		if strings.Compare(fmt.Sprint(er1), "mongo: no documents in result") == 0 {
@@ -54,12 +54,12 @@ func (s *PasscodeService) Load(ctx context.Context, id string) (string, time.Tim
 		return "", time.Now().Add(-24 * time.Hour), er3
 	}
 
-	code := strings.Trim(k.Lookup(s.passcodeName).String(), "\"")
-	expiredAt := k.Lookup(s.expiredAtName).Time()
+	code := strings.Trim(k.Lookup(r.passcodeName).String(), "\"")
+	expiredAt := k.Lookup(r.expiredAtName).Time()
 	return code, expiredAt, nil
 }
 
-func (s *PasscodeService) Delete(ctx context.Context, id string) (int64, error) {
+func (r *PasscodeRepository) Delete(ctx context.Context, id string) (int64, error) {
 	idQuery := bson.M{"_id": id}
-	return DeleteOne(ctx, s.collection, idQuery)
+	return DeleteOne(ctx, r.collection, idQuery)
 }

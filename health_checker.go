@@ -9,22 +9,22 @@ import (
 	"go.mongodb.org/mongo-driver/x/bsonx"
 )
 
-type MongoHealthChecker struct {
+type HealthChecker struct {
 	db      *mongo.Database
 	name    string
 	timeout time.Duration
 }
 
-func NewMongoHealthChecker(db *mongo.Database, name string, timeouts ...time.Duration) *MongoHealthChecker {
+func NewMongoHealthChecker(db *mongo.Database, name string, timeouts ...time.Duration) *HealthChecker {
 	var timeout time.Duration
 	if len(timeouts) >= 1 {
 		timeout = timeouts[0]
 	} else {
 		timeout = 4 * time.Second
 	}
-	return &MongoHealthChecker{db: db, name: name, timeout: timeout}
+	return &HealthChecker{db: db, name: name, timeout: timeout}
 }
-func NewHealthChecker(db *mongo.Database, options ...string) *MongoHealthChecker {
+func NewHealthChecker(db *mongo.Database, options ...string) *HealthChecker {
 	var name string
 	if len(options) >= 1 && len(options[0]) > 0 {
 		name = options[0]
@@ -34,11 +34,11 @@ func NewHealthChecker(db *mongo.Database, options ...string) *MongoHealthChecker
 	return NewMongoHealthChecker(db, name, 4 * time.Second)
 }
 
-func (s *MongoHealthChecker) Name() string {
+func (s *HealthChecker) Name() string {
 	return s.name
 }
 
-func (s *MongoHealthChecker) Check(ctx context.Context) (map[string]interface{}, error) {
+func (s *HealthChecker) Check(ctx context.Context) (map[string]interface{}, error) {
 	cancel := func() {}
 	if s.timeout > 0 {
 		ctx, cancel = context.WithTimeout(ctx, s.timeout)
@@ -59,7 +59,7 @@ func (s *MongoHealthChecker) Check(ctx context.Context) (map[string]interface{},
 	}
 }
 
-func (s *MongoHealthChecker) Build(ctx context.Context, data map[string]interface{}, err error) map[string]interface{} {
+func (s *HealthChecker) Build(ctx context.Context, data map[string]interface{}, err error) map[string]interface{} {
 	if err == nil {
 		return data
 	}

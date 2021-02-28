@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-type DefaultSearchResultBuilder struct {
+type DefaultSearchBuilder struct {
 	Database          *mongo.Database
 	BuildQuery        func(sm interface{}) (bson.M, bson.M)
 	BuildSort         func(s string, modelType reflect.Type) bson.M
@@ -17,24 +17,24 @@ type DefaultSearchResultBuilder struct {
 	Map               func(ctx context.Context, model interface{}) (interface{}, error)
 }
 
-func NewSearchResultBuilderWithMap(db *mongo.Database, buildQuery func(sm interface{}) (bson.M, bson.M), buildSort func(s string, modelType reflect.Type) bson.M, mp func(context.Context, interface{}) (interface{}, error), options...func(m interface{}) (string, int64, int64, int64, error)) *DefaultSearchResultBuilder {
+func NewSearchBuilderWithMap(db *mongo.Database, buildQuery func(sm interface{}) (bson.M, bson.M), buildSort func(s string, modelType reflect.Type) bson.M, mp func(context.Context, interface{}) (interface{}, error), options...func(m interface{}) (string, int64, int64, int64, error)) *DefaultSearchBuilder {
 	var extractSearchInfo func(m interface{}) (string, int64, int64, int64, error)
 	if len(options) >= 1 {
 		extractSearchInfo = options[0]
 	} else {
 		extractSearchInfo = ExtractSearchInfo
 	}
-	builder := &DefaultSearchResultBuilder{Database: db, BuildQuery: buildQuery, BuildSort: buildSort, ExtractSearchInfo: extractSearchInfo, Map: mp}
+	builder := &DefaultSearchBuilder{Database: db, BuildQuery: buildQuery, BuildSort: buildSort, ExtractSearchInfo: extractSearchInfo, Map: mp}
 	return builder
 }
-func NewSearchResultBuilder(db *mongo.Database, buildQuery func(sm interface{}) (bson.M, bson.M), options...func(context.Context, interface{}) (interface{}, error)) *DefaultSearchResultBuilder {
+func NewSearchBuilder(db *mongo.Database, buildQuery func(sm interface{}) (bson.M, bson.M), options...func(context.Context, interface{}) (interface{}, error)) *DefaultSearchBuilder {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
 		mp = options[0]
 	}
-	return NewSearchResultBuilderWithMap(db, buildQuery, BuildSort, mp, ExtractSearchInfo)
+	return NewSearchBuilderWithMap(db, buildQuery, BuildSort, mp, ExtractSearchInfo)
 }
-func NewDefaultSearchResultBuilder(db *mongo.Database, modelType reflect.Type, mp func(context.Context, interface{}) (interface{}, error), options...func(m interface{}) (string, int64, int64, int64, error)) *DefaultSearchResultBuilder {
+func NewDefaultSearchBuilder(db *mongo.Database, modelType reflect.Type, mp func(context.Context, interface{}) (interface{}, error), options...func(m interface{}) (string, int64, int64, int64, error)) *DefaultSearchBuilder {
 	q := NewQueryBuilder(modelType)
 	var extractSearchInfo func(m interface{}) (string, int64, int64, int64, error)
 	if len(options) >= 1 {
@@ -42,9 +42,9 @@ func NewDefaultSearchResultBuilder(db *mongo.Database, modelType reflect.Type, m
 	} else {
 		extractSearchInfo = ExtractSearchInfo
 	}
-	return NewSearchResultBuilderWithMap(db, q.BuildQuery, BuildSort, mp, extractSearchInfo)
+	return NewSearchBuilderWithMap(db, q.BuildQuery, BuildSort, mp, extractSearchInfo)
 }
-func (b *DefaultSearchResultBuilder) BuildSearchResult(ctx context.Context, collection *mongo.Collection, m interface{}, modelType reflect.Type) (interface{}, int64, error) {
+func (b *DefaultSearchBuilder) Search(ctx context.Context, collection *mongo.Collection, m interface{}, modelType reflect.Type) (interface{}, int64, error) {
 	query, fields := b.BuildQuery(m)
 
 	var sort = bson.M{}
@@ -93,7 +93,7 @@ func BuildSearchResult(ctx context.Context, collection *mongo.Collection, modelT
 	if mp == nil {
 		return results, count, nil
 	}
-	r2, er3 := dbToModels(ctx, results, mp)
+	r2, er3 := MapModels(ctx, results, mp)
 	return r2, count, er3
 }
 

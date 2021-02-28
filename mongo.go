@@ -1223,7 +1223,7 @@ func GetSortType(sortType string) int {
 	}
 }
 
-func dbToModels(ctx context.Context, models interface{}, mp func(context.Context, interface{}) (interface{}, error)) (interface{}, error) {
+func MapModels(ctx context.Context, models interface{}, mp func(context.Context, interface{}) (interface{}, error)) (interface{}, error) {
 	valueModelObject := reflect.Indirect(reflect.ValueOf(models))
 	if valueModelObject.Kind() == reflect.Ptr {
 		valueModelObject = reflect.Indirect(valueModelObject)

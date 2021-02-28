@@ -7,15 +7,15 @@ import (
 )
 
 type Searcher struct {
-	modelType     reflect.Type
-	collection    *mongo.Collection
-	searchBuilder SearchResultBuilder
+	modelType  reflect.Type
+	collection *mongo.Collection
+	Build      func(ctx context.Context, collection *mongo.Collection, searchModel interface{}, modelType reflect.Type) (interface{}, int64, error)
 }
 
-func NewSearcher(db *mongo.Database, modelType reflect.Type, collectionName string, searchBuilder SearchResultBuilder) *Searcher {
-	return &Searcher{modelType, db.Collection(collectionName), searchBuilder}
+func NewSearcher(db *mongo.Database, modelType reflect.Type, collectionName string, build func(context.Context, *mongo.Collection, interface{}, reflect.Type) (interface{}, int64, error)) *Searcher {
+	return &Searcher{modelType: modelType, collection: db.Collection(collectionName), Build: build}
 }
 
 func (s *Searcher) Search(ctx context.Context, m interface{}) (interface{}, int64, error) {
-	return s.searchBuilder.BuildSearchResult(ctx, s.collection, m, s.modelType)
+	return s.Build(ctx, s.collection, m, s.modelType)
 }

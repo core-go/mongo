@@ -15,7 +15,7 @@ func NewMongoBatchWriter(database *mongo.Database, collectionName string) *Mongo
 	return &MongoBatchWriter{collection}
 }
 
-func (w *MongoBatchWriter) WriteBatch(ctx context.Context, models interface{}) ([]int, []int, error) {
+func (w *MongoBatchWriter) Write(ctx context.Context, models interface{}) ([]int, []int, error) {
 	successIndices := make([]int, 0)
 	failIndices := make([]int, 0)
 

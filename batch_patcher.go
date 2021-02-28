@@ -6,33 +6,37 @@ import (
 	"reflect"
 )
 
-type MongoBatchUpdater struct {
+type BatchPatcher struct {
 	collection *mongo.Collection
 	IdName     string
 	modelType  reflect.Type
 	modelsType reflect.Type
 }
 
-func NewMongoBatchUpdaterWithIdName(database *mongo.Database, collectionName string, modelType reflect.Type, fieldName string) *MongoBatchUpdater {
+func NewBatchPatcherWithId(database *mongo.Database, collectionName string, modelType reflect.Type, fieldName string) *BatchPatcher {
 	if len(fieldName) == 0 {
 		_, idName := FindIdField(modelType)
 		fieldName = idName
 	}
+	return CreateMongoBatchPatcherIdName(database, collectionName, modelType, fieldName)
+}
+
+func NewBatchPatcher(database *mongo.Database, collectionName string, modelType reflect.Type) *BatchPatcher {
+	return CreateMongoBatchPatcherIdName(database, collectionName, modelType, "")
+}
+
+func CreateMongoBatchPatcherIdName(database *mongo.Database, collectionName string, modelType reflect.Type, fieldName string) *BatchPatcher {
 	modelsType := reflect.Zero(reflect.SliceOf(modelType)).Type()
 	collection := database.Collection(collectionName)
-	return &MongoBatchUpdater{collection, fieldName, modelType, modelsType}
+	return &BatchPatcher{collection, fieldName, modelType, modelsType}
 }
 
-func NewMongoBatchUpdater(database *mongo.Database, collectionName string, modelType reflect.Type) *MongoBatchUpdater {
-	return NewMongoBatchUpdaterWithIdName(database, collectionName, modelType, "")
-}
-
-func (w *MongoBatchUpdater) WriteBatch(ctx context.Context, models interface{}) ([]int, []int, error) {
+func (w *BatchPatcher) Write(ctx context.Context, models []map[string]interface{}) ([]int, []int, error) {
 	successIndices := make([]int, 0)
 	failIndices := make([]int, 0)
 
 	s := reflect.ValueOf(models)
-	_, err := UpdateMany(ctx, w.collection, models, w.IdName)
+	_, err := PatchMaps(ctx, w.collection, models, w.IdName)
 
 	if err == nil {
 		// Return full success

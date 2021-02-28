@@ -9,7 +9,7 @@ import (
 	"reflect"
 )
 
-type MongoLoader struct {
+type Loader struct {
 	Collection *mongo.Collection
 	Map        func(ctx context.Context, model interface{}) (interface{}, error)
 	modelType  reflect.Type
@@ -19,7 +19,7 @@ type MongoLoader struct {
 	keys       []string
 }
 
-func NewMongoLoader(db *mongo.Database, modelType reflect.Type, collectionName string, idObjectId bool, options ...func(context.Context, interface{}) (interface{}, error)) *MongoLoader {
+func NewMongoLoader(db *mongo.Database, modelType reflect.Type, collectionName string, idObjectId bool, options ...func(context.Context, interface{}) (interface{}, error)) *Loader {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
 		mp = options[0]
@@ -30,10 +30,10 @@ func NewMongoLoader(db *mongo.Database, modelType reflect.Type, collectionName s
 	}
 	var idNames []string
 	idNames = append(idNames, idName)
-	return &MongoLoader{db.Collection(collectionName), mp, modelType, idName, idIndex, idObjectId, idNames}
+	return &Loader{db.Collection(collectionName), mp, modelType, idName, idIndex, idObjectId, idNames}
 }
 
-func NewLoader(db *mongo.Database, modelType reflect.Type, collectionName string, options ...func(context.Context, interface{}) (interface{}, error)) *MongoLoader {
+func NewLoader(db *mongo.Database, modelType reflect.Type, collectionName string, options ...func(context.Context, interface{}) (interface{}, error)) *Loader {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
 		mp = options[0]
@@ -41,24 +41,24 @@ func NewLoader(db *mongo.Database, modelType reflect.Type, collectionName string
 	return NewMongoLoader(db, modelType, collectionName, false, mp)
 }
 
-func (m *MongoLoader) Keys() []string {
+func (m *Loader) Keys() []string {
 	return m.keys
 }
 
-func (m *MongoLoader) All(ctx context.Context) (interface{}, error) {
+func (m *Loader) All(ctx context.Context) (interface{}, error) {
 	modelsType := reflect.Zero(reflect.SliceOf(m.modelType)).Type()
 	result := reflect.New(modelsType).Interface()
 	v, err := FindAndDecode(ctx, m.Collection, bson.M{}, result)
 	if v {
 		if m.Map != nil {
-			return dbToModels(ctx, result, m.Map)
+			return MapModels(ctx, result, m.Map)
 		}
 		return result, err
 	}
 	return nil, err
 }
 
-func (m *MongoLoader) Load(ctx context.Context, id interface{}) (interface{}, error) {
+func (m *Loader) Load(ctx context.Context, id interface{}) (interface{}, error) {
 	r, er1 := FindOneWithId(ctx, m.Collection, id, m.idObjectId, m.modelType)
 	if er1 != nil {
 		return r, er1
@@ -73,7 +73,7 @@ func (m *MongoLoader) Load(ctx context.Context, id interface{}) (interface{}, er
 	return r, er1
 }
 
-func (m *MongoLoader) LoadAndDecode(ctx context.Context, id interface{}, result interface{}) (bool, error) {
+func (m *Loader) LoadAndDecode(ctx context.Context, id interface{}, result interface{}) (bool, error) {
 	if m.idObjectId {
 		objId := id.(string)
 		objectId, err := primitive.ObjectIDFromHex(objId)
@@ -101,6 +101,6 @@ func (m *MongoLoader) LoadAndDecode(ctx context.Context, id interface{}, result 
 	return ok, er2
 }
 
-func (m *MongoLoader) Exist(ctx context.Context, id interface{}) (bool, error) {
+func (m *Loader) Exist(ctx context.Context, id interface{}) (bool, error) {
 	return Exist(ctx, m.Collection, id, m.idObjectId)
 }
