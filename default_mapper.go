@@ -58,7 +58,7 @@ func (s *DefaultMapper) DbToModel(ctx context.Context, model interface{}) (inter
 	}
 	k := valueModelObject.Kind()
 	if k == reflect.Map || k == reflect.Struct {
-		s.doBsonToLocation(valueModelObject)
+		s.doBsonToLocation(valueModelObject, s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
 	}
 	return model, nil
 }
@@ -71,7 +71,7 @@ func (s *DefaultMapper) DbToModels(ctx context.Context, model interface{}) (inte
 
 	if valueModelObject.Kind() == reflect.Slice {
 		for i := 0; i < valueModelObject.Len(); i++ {
-			s.doBsonToLocation(valueModelObject.Index(i))
+			BsonToLocation(valueModelObject.Index(i), s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
 		}
 	}
 	return model, nil
@@ -103,31 +103,42 @@ func (s *DefaultMapper) ModelsToDb(ctx context.Context, model interface{}) (inte
 	return model, nil
 }
 
-func (s *DefaultMapper) doBsonToLocation(value reflect.Value) {
-	var arrLatLongTag, latitudeTag, longitudeTag string
-	if arrLatLongTag = GetBsonName(s.modelType, s.bsonName); arrLatLongTag == "" || arrLatLongTag == "-" {
-		arrLatLongTag = getJsonName(s.modelType, s.bsonName)
-	}
-
-	if latitudeTag = GetBsonName(s.modelType, s.latitudeName); latitudeTag == "" || latitudeTag == "-" {
-		latitudeTag = getJsonName(s.modelType, s.latitudeName)
-	}
-
-	if longitudeTag = GetBsonName(s.modelType, s.longitudeName); longitudeTag == "" || longitudeTag == "-" {
-		longitudeTag = getJsonName(s.modelType, s.longitudeName)
-	}
-
+func BsonToLocation(value reflect.Value, bsonIndex int, latitudeIndex int, longitudeIndex int) {
 	if value.Kind() == reflect.Struct {
 		x := reflect.Indirect(value)
-		arrLatLong := reflect.Indirect(x.Field(s.bsonIndex)).FieldByName("Coordinates").Interface()
+		arrLatLong := reflect.Indirect(x.Field(bsonIndex)).FieldByName("Coordinates").Interface()
 		latitude := reflect.Indirect(reflect.ValueOf(arrLatLong)).Index(0).Interface()
 		longitude := reflect.Indirect(reflect.ValueOf(arrLatLong)).Index(1).Interface()
 
-		x.Field(s.latitudeIndex).Set(reflect.ValueOf(latitude))
-		x.Field(s.longitudeIndex).Set(reflect.ValueOf(longitude))
+		x.Field(latitudeIndex).Set(reflect.ValueOf(latitude))
+		x.Field(longitudeIndex).Set(reflect.ValueOf(longitude))
+	}
+}
+func (s *DefaultMapper) doBsonToLocation(value reflect.Value, bsonIndex int, latitudeIndex int, longitudeIndex int) {
+	if value.Kind() == reflect.Struct {
+		x := reflect.Indirect(value)
+		arrLatLong := reflect.Indirect(x.Field(bsonIndex)).FieldByName("Coordinates").Interface()
+		latitude := reflect.Indirect(reflect.ValueOf(arrLatLong)).Index(0).Interface()
+		longitude := reflect.Indirect(reflect.ValueOf(arrLatLong)).Index(1).Interface()
+
+		x.Field(latitudeIndex).Set(reflect.ValueOf(latitude))
+		x.Field(longitudeIndex).Set(reflect.ValueOf(longitude))
 	}
 
 	if value.Kind() == reflect.Map {
+		var arrLatLongTag, latitudeTag, longitudeTag string
+		if arrLatLongTag = GetBsonName(s.modelType, s.bsonName); arrLatLongTag == "" || arrLatLongTag == "-" {
+			arrLatLongTag = getJsonName(s.modelType, s.bsonName)
+		}
+
+		if latitudeTag = GetBsonName(s.modelType, s.latitudeName); latitudeTag == "" || latitudeTag == "-" {
+			latitudeTag = getJsonName(s.modelType, s.latitudeName)
+		}
+
+		if longitudeTag = GetBsonName(s.modelType, s.longitudeName); longitudeTag == "" || longitudeTag == "-" {
+			longitudeTag = getJsonName(s.modelType, s.longitudeName)
+		}
+
 		arrLatLong := reflect.Indirect(reflect.ValueOf(value.MapIndex(reflect.ValueOf(arrLatLongTag)).Interface())).MapIndex(reflect.ValueOf("coordinates")).Interface()
 		latitude := reflect.Indirect(reflect.ValueOf(arrLatLong)).Index(0).Interface()
 		longitude := reflect.Indirect(reflect.ValueOf(arrLatLong)).Index(1).Interface()
@@ -151,18 +162,19 @@ func LocationToBson(value reflect.Value, bsonIndex int, latitudeIndex int, longi
 		longitudeField = reflect.Indirect(longitudeField)
 	}
 
+	latitude := latitudeField.Interface()
+	longitude := longitudeField.Interface()
+	var arr []float64
+	arr = append(arr, latitude.(float64), longitude.(float64))
+
 	locationField := reflect.Indirect(value).Field(bsonIndex)
 	if locationField.Kind() == reflect.Ptr {
 		locationField = reflect.Indirect(locationField)
 	}
-
-	latitude := latitudeField.Interface()
-	longitude := longitudeField.Interface()
-	locationField.FieldByName("Type").Set(reflect.ValueOf("Point"))
-
-	var arr []float64
-	arr = append(arr, latitude.(float64), longitude.(float64))
-	locationField.FieldByName("Coordinates").Set(reflect.ValueOf(arr))
+	x := locationField.FieldByName("Type")
+	x.Set(reflect.ValueOf("Point"))
+	y := locationField.FieldByName("Coordinates")
+	y.Set(reflect.ValueOf(arr))
 }
 
 func getJsonName(modelType reflect.Type, fieldName string) string {
