@@ -6,21 +6,35 @@ import (
 	"reflect"
 )
 
-type MongoBatchWriter struct {
+type BatchWriter struct {
 	collection *mongo.Collection
+	Map        func(ctx context.Context, model interface{}) (interface{}, error)
 }
 
-func NewMongoBatchWriter(database *mongo.Database, collectionName string) *MongoBatchWriter {
+func NewBatchWriter(database *mongo.Database, collectionName string, options...func(context.Context, interface{}) (interface{}, error)) *BatchWriter {
+	var mp func(context.Context, interface{}) (interface{}, error)
+	if len(options) >= 1 {
+		mp = options[0]
+	}
 	collection := database.Collection(collectionName)
-	return &MongoBatchWriter{collection}
+	return &BatchWriter{collection, mp}
 }
 
-func (w *MongoBatchWriter) Write(ctx context.Context, models interface{}) ([]int, []int, error) {
+func (w *BatchWriter) Write(ctx context.Context, models interface{}) ([]int, []int, error) {
 	successIndices := make([]int, 0)
 	failIndices := make([]int, 0)
 
 	s := reflect.ValueOf(models)
-	_, err := UpsertMany(ctx, w.collection, models)
+	var err error
+	if w.Map != nil {
+		m2, er0 := MapModels(ctx, models, w.Map)
+		if er0 != nil {
+			return successIndices, failIndices, er0
+		}
+		_, err = UpsertMany(ctx, w.collection, m2)
+	} else {
+		_, err = UpsertMany(ctx, w.collection, models)
+	}
 
 	if err == nil {
 		// Return full success

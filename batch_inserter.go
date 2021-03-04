@@ -24,7 +24,16 @@ func (w *BatchInserter) Write(ctx context.Context, models interface{}) ([]int, [
 	successIndices := make([]int, 0)
 	failIndices := make([]int, 0)
 	s := reflect.ValueOf(models)
-	_, _, er1 := InsertManySkipErrors(ctx, w.collection, models)
+	var er1 error
+	if w.Map != nil {
+		m2, er0 := MapModels(ctx, models, w.Map)
+		if er0 != nil {
+			return successIndices, failIndices, er0
+		}
+		_, _, er1 = InsertManySkipErrors(ctx, w.collection, m2)
+	} else {
+		_, _, er1 = InsertManySkipErrors(ctx, w.collection, models)
+	}
 
 	if er1 == nil {
 		// Return full success

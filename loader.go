@@ -19,7 +19,7 @@ type Loader struct {
 	keys       []string
 }
 
-func NewMongoLoader(db *mongo.Database, modelType reflect.Type, collectionName string, idObjectId bool, options ...func(context.Context, interface{}) (interface{}, error)) *Loader {
+func NewMongoLoader(db *mongo.Database, collectionName string, modelType reflect.Type, idObjectId bool, options ...func(context.Context, interface{}) (interface{}, error)) *Loader {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
 		mp = options[0]
@@ -33,12 +33,12 @@ func NewMongoLoader(db *mongo.Database, modelType reflect.Type, collectionName s
 	return &Loader{db.Collection(collectionName), mp, modelType, idName, idIndex, idObjectId, idNames}
 }
 
-func NewLoader(db *mongo.Database, modelType reflect.Type, collectionName string, options ...func(context.Context, interface{}) (interface{}, error)) *Loader {
+func NewLoader(db *mongo.Database, collectionName string, modelType reflect.Type, options ...func(context.Context, interface{}) (interface{}, error)) *Loader {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
 		mp = options[0]
 	}
-	return NewMongoLoader(db, modelType, collectionName, false, mp)
+	return NewMongoLoader(db, collectionName, modelType, false, mp)
 }
 
 func (m *Loader) Keys() []string {

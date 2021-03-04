@@ -16,14 +16,14 @@ type Writer struct {
 	Mapper       Mapper
 }
 
-func NewWriterWithVersion(db *mongo.Database, modelType reflect.Type, collectionName string, idObjectId bool, versionField string, options ...Mapper) *Writer {
+func NewWriterWithVersion(db *mongo.Database, collectionName string, modelType reflect.Type, idObjectId bool, versionField string, options ...Mapper) *Writer {
 	var mapper Mapper
 	var loader *Loader
 	if len(options) >= 1 {
 		mapper = options[0]
-		loader = NewMongoLoader(db, modelType, collectionName, idObjectId, mapper.DbToModel)
+		loader = NewMongoLoader(db, collectionName, modelType, idObjectId, mapper.DbToModel)
 	} else {
-		loader = NewMongoLoader(db, modelType, collectionName, idObjectId)
+		loader = NewMongoLoader(db, collectionName, modelType, idObjectId)
 	}
 	if len(versionField) > 0 {
 		index := FindFieldIndex(modelType, versionField)
@@ -33,11 +33,11 @@ func NewWriterWithVersion(db *mongo.Database, modelType reflect.Type, collection
 	}
 	return &Writer{Loader: loader, maps: MakeMapBson(modelType), versionField: "", versionIndex: -1, Mapper: mapper}
 }
-func NewMongoWriter(db *mongo.Database, modelType reflect.Type, collectionName string, versionField string, options ...Mapper) *Writer {
-	return NewWriterWithVersion(db, modelType, collectionName, false, versionField, options...)
+func NewMongoWriter(db *mongo.Database, collectionName string, modelType reflect.Type, versionField string, options ...Mapper) *Writer {
+	return NewWriterWithVersion(db, collectionName, modelType, false, versionField, options...)
 }
-func NewWriter(db *mongo.Database, modelType reflect.Type, collectionName string, options ...Mapper) *Writer {
-	return NewWriterWithVersion(db, modelType, collectionName, false, "", options...)
+func NewWriter(db *mongo.Database, collectionName string, modelType reflect.Type, options ...Mapper) *Writer {
+	return NewWriterWithVersion(db, collectionName, modelType, false, "", options...)
 }
 
 func (m *Writer) Insert(ctx context.Context, model interface{}) (int64, error) {
