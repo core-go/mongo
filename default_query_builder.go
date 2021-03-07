@@ -198,13 +198,13 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 
 func ExtractSearchInfo(m interface{}) (string, int64, int64, int64, error) {
 	if sModel, ok := m.(*search.SearchModel); ok {
-		return sModel.Sort, sModel.PageIndex, sModel.PageSize, sModel.FirstPageSize, nil
+		return sModel.Sort, sModel.Page, sModel.Limit, sModel.FirstLimit, nil
 	} else {
 		value := reflect.Indirect(reflect.ValueOf(m))
 		numField := value.NumField()
 		for i := 0; i < numField; i++ {
 			if sModel1, ok := value.Field(i).Interface().(*search.SearchModel); ok {
-				return sModel1.Sort, sModel1.PageIndex, sModel1.PageSize, sModel1.FirstPageSize, nil
+				return sModel1.Sort, sModel1.Page, sModel1.Limit, sModel1.FirstLimit, nil
 			}
 		}
 		return "", 0, 0, 0, errors.New("cannot extract sort, pageIndex, pageSize, firstPageSize from model")
