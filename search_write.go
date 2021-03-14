@@ -14,11 +14,11 @@ func NewMongoSearchWriterWithQuery(db *mongo.Database, collectionName string, mo
 	}
 	writer := NewWriterWithVersion(db, collectionName, modelType, idObjectId, versionField, mapper)
 	if mapper != nil {
-		builder := NewSearchBuilder(db.Collection(collectionName), modelType, buildQuery, mapper.DbToModel)
+		builder := NewSearchBuilderWithQuery(db, collectionName, modelType, buildQuery, mapper.DbToModel)
 		searcher := NewSearcher(builder.Search)
 		return writer, searcher
 	} else {
-		builder := NewSearchBuilder(db.Collection(collectionName), modelType, buildQuery)
+		builder := NewSearchBuilderWithQuery(db, collectionName, modelType, buildQuery)
 		searcher := NewSearcher(builder.Search)
 		return writer, searcher
 	}
@@ -39,11 +39,11 @@ func NewSearchWriterWithVersionAndQuery(db *mongo.Database, collectionName strin
 	}
 	writer := NewWriterWithVersion(db, collectionName, modelType, false, version, mapper)
 	if mapper != nil {
-		builder := NewSearchBuilder(db.Collection(collectionName), modelType, buildQuery, mapper.DbToModel)
+		builder := NewSearchBuilderWithQuery(db, collectionName, modelType, buildQuery, mapper.DbToModel)
 		searcher := NewSearcher(builder.Search)
 		return writer, searcher
 	} else {
-		builder := NewSearchBuilder(db.Collection(collectionName), modelType, buildQuery)
+		builder := NewSearchBuilderWithQuery(db, collectionName, modelType, buildQuery)
 		searcher := NewSearcher(builder.Search)
 		return writer, searcher
 	}
@@ -64,11 +64,11 @@ func NewSearchWriterWithQuery(db *mongo.Database, collectionName string, modelTy
 	}
 	writer := NewWriterWithVersion(db, collectionName, modelType, false, "", mapper)
 	if mapper != nil {
-		builder := NewSearchBuilder(db.Collection(collectionName), modelType, buildQuery, mapper.DbToModel)
+		builder := NewSearchBuilderWithQuery(db, collectionName, modelType, buildQuery, mapper.DbToModel)
 		searcher := NewSearcher(builder.Search)
 		return writer, searcher
 	} else {
-		builder := NewSearchBuilder(db.Collection(collectionName), modelType, buildQuery)
+		builder := NewSearchBuilderWithQuery(db, collectionName, modelType, buildQuery)
 		searcher := NewSearcher(builder.Search)
 		return writer, searcher
 	}

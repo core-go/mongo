@@ -294,11 +294,7 @@ func InsertOne(ctx context.Context, collection *mongo.Collection, model interfac
 	if err != nil {
 		errMsg := err.Error()
 		if strings.Index(errMsg, "duplicate key error collection:") >= 0 {
-			if strings.Index(errMsg, "dup key: { _id: ") >= 0 {
-				return 0, nil
-			} else {
-				return -1, nil
-			}
+			return 0, nil
 		} else {
 			return 0, err
 		}

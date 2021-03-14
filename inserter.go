@@ -2,7 +2,6 @@ package mongo
 
 import (
 	"context"
-	"errors"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -21,18 +20,15 @@ func NewInserter(database *mongo.Database, collectionName string, options ...fun
 }
 
 func (w *Inserter) Write(ctx context.Context, model interface{}) error {
-	var code int64
 	var err error
 	if w.Map != nil {
 		m2, er0 := w.Map(ctx, model)
 		if er0 != nil {
 			return er0
 		}
-		code, err = InsertOne(ctx, w.collection, m2)
+		_, err = w.collection.InsertOne(ctx, m2)
+		return err
 	}
-	code, err = InsertOne(ctx, w.collection, model)
-	if code == 0 {
-		return errors.New("duplicate key")
-	}
+	_, err = InsertOne(ctx, w.collection, model)
 	return err
 }

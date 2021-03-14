@@ -13,7 +13,7 @@ func NewMongoSearchLoaderWithQuery(db *mongo.Database, collection string, modelT
 		mp = options[0]
 	}
 	loader := NewMongoLoader(db, collection, modelType, idObjectId, mp)
-	builder := NewSearchBuilder(db.Collection(collection), modelType, buildQuery, mp)
+	builder := NewSearchBuilderWithQuery(db, collection, modelType, buildQuery, mp)
 	searcher := NewSearcher(builder.Search)
 	return loader, searcher
 }
