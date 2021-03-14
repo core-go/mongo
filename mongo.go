@@ -12,54 +12,7 @@ import (
 	"log"
 	"reflect"
 	"strings"
-	"time"
 )
-
-func SetupMongo(ctx context.Context, c MongoConfig) (*mongo.Database, error) {
-	option := options.Client().ApplyURI(c.Uri)
-	if c.MaxPoolSize > 0 {
-		option = option.SetMaxPoolSize(c.MaxPoolSize)
-	}
-	if c.MinPoolSize > 0 {
-		option = option.SetMinPoolSize(c.MinPoolSize)
-	}
-	if c.ConnectTimeout > 0 {
-		option = option.SetConnectTimeout(time.Duration(c.ConnectTimeout) * time.Second)
-	}
-	if c.SocketTimeout > 0 {
-		option = option.SetSocketTimeout(time.Duration(c.SocketTimeout) * time.Second)
-	}
-	if c.ServerSelectionTimeout > 0 {
-		option = option.SetServerSelectionTimeout(time.Duration(c.ServerSelectionTimeout) * time.Second)
-	}
-	if c.LocalThreshold > 0 {
-		option = option.SetLocalThreshold(time.Duration(c.LocalThreshold) * time.Second)
-	}
-	if c.HeartbeatInterval > 0 {
-		option = option.SetHeartbeatInterval(time.Duration(c.HeartbeatInterval) * time.Second)
-	}
-	if c.ZlibLevel != 0 {
-		option = option.SetZlibLevel(c.ZlibLevel)
-	}
-
-	client, err := mongo.Connect(ctx, option)
-	if err != nil {
-		return nil, err
-	}
-
-	db := client.Database(c.Database)
-	return db, nil
-}
-
-func CreateConnection(ctx context.Context, uri string, database string) (*mongo.Database, error) {
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
-	if err != nil {
-		return nil, err
-	}
-
-	db := client.Database(database)
-	return db, nil
-}
 
 func CreateUniqueIndex(collection *mongo.Collection, fieldName string) (string, error) {
 	indexName, err := collection.Indexes().CreateOne(
