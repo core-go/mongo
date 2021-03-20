@@ -29,6 +29,6 @@ func (w *Inserter) Write(ctx context.Context, model interface{}) error {
 		_, err = w.collection.InsertOne(ctx, m2)
 		return err
 	}
-	_, err = InsertOne(ctx, w.collection, model)
+	_, err = w.collection.InsertOne(ctx, model)
 	return err
 }
