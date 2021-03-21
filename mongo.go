@@ -870,7 +870,12 @@ func GetBsonName(modelType reflect.Type, fieldName string) string {
 	}
 	return fieldName
 }
-
+func GetJsonByIndex(modelType reflect.Type, fieldIndex int) string {
+	if tag, ok := modelType.Field(fieldIndex).Tag.Lookup("json"); ok {
+		return strings.Split(tag, ",")[0]
+	}
+	return ""
+}
 func GetBsonNameByIndex(model interface{}, fieldIndex int) string {
 	modelType := reflect.TypeOf(model).Elem()
 	if tag, ok := modelType.Field(fieldIndex).Tag.Lookup("bson"); ok {
@@ -912,9 +917,17 @@ func MakeMapBson(modelType reflect.Type) map[string]string {
 	maps := make(map[string]string)
 	numField := modelType.NumField()
 	for i := 0; i < numField; i++ {
-		key1 := modelType.Field(i).Name
-		fields, _ := modelType.FieldByName(key1)
-		if tag, ok := fields.Tag.Lookup("bson"); ok {
+		field := modelType.Field(i)
+		key1 := field.Name
+		if tag0, ok0 := field.Tag.Lookup("json"); ok0 {
+			if strings.Contains(tag0, ",") {
+				a := strings.Split(tag0, ",")
+				key1 = a[0]
+			} else {
+				key1 = tag0
+			}
+		}
+		if tag, ok := field.Tag.Lookup("bson"); ok {
 			if strings.Contains(tag, ",") {
 				a := strings.Split(tag, ",")
 				maps[key1] = a[0]

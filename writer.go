@@ -89,14 +89,18 @@ func (m *Writer) Patch(ctx context.Context, model map[string]interface{}) (int64
 		if m.versionIndex >= 0 {
 			return PatchByIdAndVersion(ctx, m.Collection, m3, m.maps, m.idName, m.versionField)
 		}
-		idQuery := BuildQueryByIdFromMap(m3, m.idName)
-		return PatchOne(ctx, m.Collection, MapToBson(m3, m.maps), idQuery)
+		jsonName0 := GetJsonByIndex(m.modelType, m.idIndex)
+		idQuery := BuildQueryByIdFromMap(m3, jsonName0)
+		b0 := MapToBson(m3, m.maps)
+		return PatchOne(ctx, m.Collection, b0, idQuery)
 	}
 	if m.versionIndex >= 0 {
 		return PatchByIdAndVersion(ctx, m.Collection, model, m.maps, m.idName, m.versionField)
 	}
-	idQuery := BuildQueryByIdFromMap(model, m.idName)
-	return PatchOne(ctx, m.Collection, MapToBson(model, m.maps), idQuery)
+	jsonName := GetJsonByIndex(m.modelType, m.idIndex)
+	idQuery := BuildQueryByIdFromMap(model, jsonName)
+	b := MapToBson(model, m.maps)
+	return PatchOne(ctx, m.Collection, b, idQuery)
 }
 
 func (m *Writer) Save(ctx context.Context, model interface{}) (int64, error) {
