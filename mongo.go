@@ -876,7 +876,13 @@ func GetJsonByIndex(modelType reflect.Type, fieldIndex int) string {
 	}
 	return ""
 }
-func GetBsonNameByIndex(model interface{}, fieldIndex int) string {
+func GetBsonNameByIndex(modelType reflect.Type, fieldIndex int) string {
+	if tag, ok := modelType.Field(fieldIndex).Tag.Lookup("bson"); ok {
+		return strings.Split(tag, ",")[0]
+	}
+	return ""
+}
+func GetBsonNameByModelIndex(model interface{}, fieldIndex int) string {
 	modelType := reflect.TypeOf(model).Elem()
 	if tag, ok := modelType.Field(fieldIndex).Tag.Lookup("bson"); ok {
 		return strings.Split(tag, ",")[0]
@@ -930,11 +936,20 @@ func MakeMapBson(modelType reflect.Type) map[string]string {
 		if tag, ok := field.Tag.Lookup("bson"); ok {
 			if strings.Contains(tag, ",") {
 				a := strings.Split(tag, ",")
+				if key1 == "-" {
+					key1 = a[0]
+				}
 				maps[key1] = a[0]
 			} else {
+				if key1 == "-" {
+					key1 = tag
+				}
 				maps[key1] = tag
 			}
 		} else {
+			if key1 == "-" {
+				key1 = field.Name
+			}
 			maps[key1] = key1
 		}
 	}
@@ -1088,7 +1103,7 @@ func BuildIdAndVersionQueryByVersionIndex(query map[string]interface{}, model in
 	if versionIndex >= 0 && versionIndex < valueOfModel.NumField() {
 		var valueOfCurrentVersion reflect.Value
 		valueOfCurrentVersion = valueOfModel.Field(versionIndex)
-		versionColumnName := GetBsonNameByIndex(model, versionIndex)
+		versionColumnName := GetBsonNameByModelIndex(model, versionIndex)
 		newMap[versionColumnName] = valueOfCurrentVersion.Interface()
 		switch valueOfCurrentVersion.Kind().String() {
 		case "int":
@@ -1139,7 +1154,8 @@ func UpdateByIdAndVersion(ctx context.Context, collection *mongo.Collection, mod
 func PatchByIdAndVersion(ctx context.Context, collection *mongo.Collection, model map[string]interface{}, maps map[string]string, idName string, versionField string) (int64, error) {
 	idQuery := BuildQueryByIdFromMap(model, idName)
 	versionQuery := BuildIdAndVersionQueryByMap(idQuery, model, maps, versionField)
-	rowAffect, er1 := PatchOne(ctx, collection, MapToBson(model, maps), versionQuery)
+	b := MapToBson(model, maps)
+	rowAffect, er1 := PatchOne(ctx, collection, b, versionQuery)
 	if er1 != nil {
 		return 0, er1
 	}
