@@ -24,12 +24,12 @@ func NewMongoLoader(db *mongo.Database, collectionName string, modelType reflect
 	if len(options) >= 1 {
 		mp = options[0]
 	}
-	idIndex, idName := FindIdField(modelType)
+	idIndex, idName, jsonIdName := FindIdField(modelType)
 	if len(idName) == 0 {
 		log.Println(modelType.Name() + " loader can't use functions that need Id value (Ex GetById, ExistsById, Save, Update) because don't have any fields of " + modelType.Name() + " struct define _id bson tag.")
 	}
 	var idNames []string
-	idNames = append(idNames, idName)
+	idNames = append(idNames, jsonIdName)
 	return &Loader{db.Collection(collectionName), mp, modelType, idName, idIndex, idObjectId, idNames}
 }
 

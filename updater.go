@@ -19,7 +19,7 @@ func NewUpdaterWithId(database *mongo.Database, collectionName string, modelType
 		mp = options[0]
 	}
 	if len(fieldName) == 0 {
-		_, idName := FindIdField(modelType)
+		_, idName, _ := FindIdField(modelType)
 		fieldName = idName
 	}
 	collection := database.Collection(collectionName)

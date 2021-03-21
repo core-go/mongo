@@ -15,7 +15,7 @@ type BatchUpdateService struct {
 }
 
 func NewBatchUpdateService(db *mongo.Database, collection string, modelType reflect.Type, idObjectId bool) *BatchUpdateService {
-	_, idName := FindIdField(modelType)
+	_, idName, _ := FindIdField(modelType)
 	if len(idName) == 0 {
 		log.Println(modelType.Name() + " repository can't use functions that need Id value (Ex GetById, ExistsById, Save, Update) because don't have any fields of " + modelType.Name() + " struct define _id bson tag.")
 	}

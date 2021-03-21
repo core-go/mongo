@@ -105,7 +105,7 @@ func FindByIds(ctx context.Context, collection *mongo.Collection, ids []string, 
 		}
 		err := find.All(ctx, result)
 		keySuccess := []string{""}
-		_, fieldName := FindIdField(modelType)
+		_, fieldName, _ := FindIdField(modelType)
 		for i := 0; i < res.Len(); i++ {
 			key := res.Index(i).FieldByName(fieldName).String()
 			keySuccess = append(keySuccess, key)
@@ -128,7 +128,7 @@ func FindByIds(ctx context.Context, collection *mongo.Collection, ids []string, 
 		}
 		err := find.All(ctx, result)
 		keySuccess := make([]primitive.ObjectID, 0)
-		_, fieldName := FindIdField(modelType)
+		_, fieldName, _ := FindIdField(modelType)
 		for i := 0; i < res.Len(); i++ {
 			key, _ := primitive.ObjectIDFromHex(res.Index(i).FieldByName(fieldName).Interface().(primitive.ObjectID).Hex())
 			keySuccess = append(keySuccess, key)
@@ -255,7 +255,7 @@ func InsertOne(ctx context.Context, collection *mongo.Collection, model interfac
 		if idValue, ok := result.InsertedID.(primitive.ObjectID); ok {
 			valueOfModel := reflect.Indirect(reflect.ValueOf(model))
 			typeOfModel := valueOfModel.Type()
-			idIndex, _ := FindIdField(typeOfModel)
+			idIndex, _, _ := FindIdField(typeOfModel)
 			if idIndex != -1 {
 				mapObjectIdToModel(idValue, valueOfModel, idIndex)
 			}
@@ -307,7 +307,7 @@ func InsertMany(ctx context.Context, collection *mongo.Collection, models interf
 		}
 
 		valueOfModel := reflect.Indirect(reflect.ValueOf(arr[0]))
-		idIndex, _ := FindIdField(valueOfModel.Type())
+		idIndex, _, _ := FindIdField(valueOfModel.Type())
 		if idIndex >= 0 {
 			for i, _ := range arr {
 				if idValue, ok := res.InsertedIDs[i].(primitive.ObjectID); ok {
@@ -347,7 +347,7 @@ func InsertManySkipErrors(ctx context.Context, collection *mongo.Collection, mod
 		if values.Len() == 0 {
 			return insertedFails, insertedFails, nil
 		}
-		_, name := FindIdField(reflect.TypeOf(values.Index(0).Interface()))
+		_, name, _ := FindIdField(reflect.TypeOf(values.Index(0).Interface()))
 		idName = name
 		for i := 0; i < values.Len(); i++ {
 			arr = append(arr, values.Index(i).Interface())
@@ -825,23 +825,27 @@ func FindFieldByName(modelType reflect.Type, fieldName string) (int, string, str
 	return -1, fieldName, fieldName
 }
 
-func FindIdField(modelType reflect.Type) (int, string) {
+func FindIdField(modelType reflect.Type) (int, string, string) {
 	return FindField(modelType, "_id")
 }
 
-func FindField(modelType reflect.Type, bsonName string) (int, string) {
+func FindField(modelType reflect.Type, bsonName string) (int, string, string) {
 	numField := modelType.NumField()
 	for i := 0; i < numField; i++ {
 		field := modelType.Field(i)
 		bsonTag := field.Tag.Get("bson")
 		tags := strings.Split(bsonTag, ",")
+		json := field.Name
+		if tag1, ok1 := field.Tag.Lookup("json"); ok1 {
+			json = strings.Split(tag1, ",")[0]
+		}
 		for _, tag := range tags {
 			if strings.TrimSpace(tag) == bsonName {
-				return i, field.Name
+				return i, field.Name, json
 			}
 		}
 	}
-	return -1, ""
+	return -1, "", ""
 }
 
 func GetFieldByJson(modelType reflect.Type, jsonName string) (int, string, string) {
@@ -893,7 +897,7 @@ func GetBsonNameByModelIndex(model interface{}, fieldIndex int) string {
 //For Update
 func BuildQueryByIdFromObject(object interface{}) bson.M {
 	valueOf := reflect.Indirect(reflect.ValueOf(object))
-	if idIndex, _ := FindIdField(valueOf.Type()); idIndex != -1 {
+	if idIndex, _, _ := FindIdField(valueOf.Type()); idIndex >= 0 {
 		value := valueOf.Field(idIndex).Interface()
 		return bson.M{"_id": value}
 	} else {
@@ -913,8 +917,10 @@ func BuildQueryByIdFromMap(m map[string]interface{}, idName string) bson.M {
 func MapToBson(object map[string]interface{}, objectMap map[string]string) map[string]interface{} {
 	result := make(map[string]interface{})
 	for key, value := range object {
-		field := objectMap[key]
-		result[field] = value
+		field, ok := objectMap[key]
+		if ok {
+			result[field] = value
+		}
 	}
 	return result
 }
@@ -934,17 +940,19 @@ func MakeMapBson(modelType reflect.Type) map[string]string {
 			}
 		}
 		if tag, ok := field.Tag.Lookup("bson"); ok {
-			if strings.Contains(tag, ",") {
-				a := strings.Split(tag, ",")
-				if key1 == "-" {
-					key1 = a[0]
+			if tag != "-" {
+				if strings.Contains(tag, ",") {
+					a := strings.Split(tag, ",")
+					if key1 == "-" {
+						key1 = a[0]
+					}
+					maps[key1] = a[0]
+				} else {
+					if key1 == "-" {
+						key1 = tag
+					}
+					maps[key1] = tag
 				}
-				maps[key1] = a[0]
-			} else {
-				if key1 == "-" {
-					key1 = tag
-				}
-				maps[key1] = tag
 			}
 		} else {
 			if key1 == "-" {

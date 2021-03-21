@@ -15,7 +15,7 @@ type BatchPatcher struct {
 
 func NewBatchPatcherWithId(database *mongo.Database, collectionName string, modelType reflect.Type, fieldName string) *BatchPatcher {
 	if len(fieldName) == 0 {
-		_, idName := FindIdField(modelType)
+		_, idName, _ := FindIdField(modelType)
 		fieldName = idName
 	}
 	return CreateMongoBatchPatcherIdName(database, collectionName, modelType, fieldName)

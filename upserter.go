@@ -19,7 +19,7 @@ func NewUpserterById(database *mongo.Database, collectionName string, modelType 
 	}
 	collection := database.Collection(collectionName)
 	if len(fieldName) == 0 {
-		_, idName := FindIdField(modelType)
+		_, idName, _ := FindIdField(modelType)
 		fieldName = idName
 	}
 	return &Upserter{collection: collection, IdName: fieldName, Map: mp}

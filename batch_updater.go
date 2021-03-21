@@ -16,7 +16,7 @@ type BatchUpdater struct {
 
 func NewBatchUpdaterWithId(database *mongo.Database, collectionName string, modelType reflect.Type, fieldName string, options...func(context.Context, interface{}) (interface{}, error)) *BatchUpdater {
 	if len(fieldName) == 0 {
-		_, idName := FindIdField(modelType)
+		_, idName, _ := FindIdField(modelType)
 		fieldName = idName
 	}
 	var mp func(context.Context, interface{}) (interface{}, error)
