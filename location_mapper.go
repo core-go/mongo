@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-type DefaultMapper struct {
+type LocationMapper struct {
 	modelType      reflect.Type
 	latitudeIndex  int
 	longitudeIndex int
@@ -16,7 +16,7 @@ type DefaultMapper struct {
 	bsonName       string
 }
 
-func NewMapper(modelType reflect.Type, options ...string) *DefaultMapper {
+func NewMapper(modelType reflect.Type, options ...string) *LocationMapper {
 	var bsonName, latitudeName, longitudeName string
 	if len(options) >= 1 && len(options[0]) > 0 {
 		bsonName = options[0]
@@ -40,7 +40,7 @@ func NewMapper(modelType reflect.Type, options ...string) *DefaultMapper {
 		bsonIndex = FindLocationIndex(modelType)
 	}
 
-	return &DefaultMapper{
+	return &LocationMapper{
 		modelType:      modelType,
 		latitudeIndex:  latitudeIndex,
 		longitudeIndex: longitudeIndex,
@@ -51,7 +51,7 @@ func NewMapper(modelType reflect.Type, options ...string) *DefaultMapper {
 	}
 }
 
-func (s *DefaultMapper) DbToModel(ctx context.Context, model interface{}) (interface{}, error) {
+func (s *LocationMapper) DbToModel(ctx context.Context, model interface{}) (interface{}, error) {
 	valueModelObject := reflect.Indirect(reflect.ValueOf(model))
 	if valueModelObject.Kind() == reflect.Ptr {
 		valueModelObject = reflect.Indirect(valueModelObject)
@@ -63,7 +63,7 @@ func (s *DefaultMapper) DbToModel(ctx context.Context, model interface{}) (inter
 	return model, nil
 }
 
-func (s *DefaultMapper) DbToModels(ctx context.Context, model interface{}) (interface{}, error) {
+func (s *LocationMapper) DbToModels(ctx context.Context, model interface{}) (interface{}, error) {
 	valueModelObject := reflect.Indirect(reflect.ValueOf(model))
 	if valueModelObject.Kind() == reflect.Ptr {
 		valueModelObject = reflect.Indirect(valueModelObject)
@@ -77,7 +77,7 @@ func (s *DefaultMapper) DbToModels(ctx context.Context, model interface{}) (inte
 	return model, nil
 }
 
-func (s *DefaultMapper) ModelToDb(ctx context.Context, model interface{}) (interface{}, error) {
+func (s *LocationMapper) ModelToDb(ctx context.Context, model interface{}) (interface{}, error) {
 	m, ok := model.(map[string]interface{})
 	if ok {
 		latJson := GetJsonByIndex(s.modelType, s.latitudeIndex)
@@ -96,7 +96,7 @@ func (s *DefaultMapper) ModelToDb(ctx context.Context, model interface{}) (inter
 	}
 	return model, nil
 }
-func (s *DefaultMapper) ModelsToDb(ctx context.Context, model interface{}) (interface{}, error) {
+func (s *LocationMapper) ModelsToDb(ctx context.Context, model interface{}) (interface{}, error) {
 	valueModelObject := reflect.Indirect(reflect.ValueOf(model))
 	if valueModelObject.Kind() == reflect.Ptr {
 		valueModelObject = reflect.Indirect(valueModelObject)
@@ -141,7 +141,7 @@ func BsonToLocation(value reflect.Value, bsonIndex int, latitudeIndex int, longi
 		}
 	}
 }
-func (s *DefaultMapper) bsonToLocation(value reflect.Value, bsonIndex int, latitudeIndex int, longitudeIndex int) {
+func (s *LocationMapper) bsonToLocation(value reflect.Value, bsonIndex int, latitudeIndex int, longitudeIndex int) {
 	if value.Kind() == reflect.Struct {
 		x := reflect.Indirect(value)
 		b := x.Field(bsonIndex)

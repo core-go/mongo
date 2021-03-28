@@ -11,14 +11,14 @@ import (
 	"strings"
 )
 
-type DefaultQueryBuilder struct {
+type QueryBuilder struct {
 	ModelType reflect.Type
 }
 
-func NewQueryBuilder(resultModelType reflect.Type) *DefaultQueryBuilder {
-	return &DefaultQueryBuilder{ModelType: resultModelType}
+func NewQueryBuilder(resultModelType reflect.Type) *QueryBuilder {
+	return &QueryBuilder{ModelType: resultModelType}
 }
-func (b *DefaultQueryBuilder) BuildQuery(sm interface{}) (bson.M, bson.M) {
+func (b *QueryBuilder) BuildQuery(sm interface{}) (bson.M, bson.M) {
 	return BuildQuery(sm, b.ModelType)
 }
 func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
