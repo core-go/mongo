@@ -36,7 +36,7 @@ You can optimize the import by version:
 - v0.0.3: Utilities to support query, find one by Id, Mapper, FieldLoader, PasscodeRepository
 - v0.0.4: Utilities to support insert, update, patch, upsert, delete
 - v0.0.5: Utilities to support batch update
-- v0.0.9: Loader, Writer, Inserter, Updater, Upserter, BatchInserter, BatchUpdater, BatchPatcher, BatchWriter
+- v0.1.0: Loader, Writer, Inserter, Updater, Upserter, BatchInserter, BatchUpdater, BatchPatcher, BatchWriter
 - v0.3.0: Searcher
 
 ## Example
