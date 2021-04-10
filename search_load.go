@@ -9,7 +9,7 @@ import (
 
 func NewMongoSearchLoaderWithQuery(db *mongo.Database, collection string, modelType reflect.Type, buildQuery func(sm interface{}) (bson.M, bson.M), idObjectId bool, options ...func(context.Context, interface{}) (interface{}, error)) (*Searcher, *Loader) {
 	var mp func(context.Context, interface{}) (interface{}, error)
-	if len(options) >= 1 {
+	if len(options) > 0 && options[0] != nil {
 		mp = options[0]
 	}
 	loader := NewMongoLoader(db, collection, modelType, idObjectId, mp)
@@ -19,7 +19,7 @@ func NewMongoSearchLoaderWithQuery(db *mongo.Database, collection string, modelT
 }
 func NewMongoSearchLoader(db *mongo.Database, collection string, modelType reflect.Type, search func(ctx context.Context, searchModel interface{}) (interface{}, int64, error), idObjectId bool, options ...func(context.Context, interface{}) (interface{}, error)) (*Searcher, *Loader) {
 	var mp func(context.Context, interface{}) (interface{}, error)
-	if len(options) >= 1 {
+	if len(options) > 0 && options[0] != nil {
 		mp = options[0]
 	}
 	loader := NewMongoLoader(db, collection, modelType, idObjectId, mp)

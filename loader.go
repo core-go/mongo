@@ -21,12 +21,12 @@ type Loader struct {
 
 func NewMongoLoader(db *mongo.Database, collectionName string, modelType reflect.Type, idObjectId bool, options ...func(context.Context, interface{}) (interface{}, error)) *Loader {
 	var mp func(context.Context, interface{}) (interface{}, error)
-	if len(options) >= 1 {
+	if len(options) > 0 && options[0] != nil {
 		mp = options[0]
 	}
 	idIndex, idName, jsonIdName := FindIdField(modelType)
 	if len(idName) == 0 {
-		log.Println(modelType.Name() + " loader can't use functions that need Id value (Ex GetById, ExistsById, Save, Update) because don't have any fields of " + modelType.Name() + " struct define _id bson tag.")
+		log.Println(modelType.Name() + " loader can't use functions that need Id value (Ex Load, Exist, Save, Update) because don't have any fields of " + modelType.Name() + " struct define _id bson tag.")
 	}
 	var idNames []string
 	idNames = append(idNames, jsonIdName)
@@ -35,7 +35,7 @@ func NewMongoLoader(db *mongo.Database, collectionName string, modelType reflect
 
 func NewLoader(db *mongo.Database, collectionName string, modelType reflect.Type, options ...func(context.Context, interface{}) (interface{}, error)) *Loader {
 	var mp func(context.Context, interface{}) (interface{}, error)
-	if len(options) >= 1 {
+	if len(options) > 0 && options[0] != nil {
 		mp = options[0]
 	}
 	return NewMongoLoader(db, collectionName, modelType, false, mp)
