@@ -35,6 +35,7 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 	keywordFormat := map[string]string{
 		"prefix":  "^%v",
 		"contain": "\\w*%v\\w*",
+		"equal":   "%v",
 	}
 	for i := 0; i < numField; i++ {
 		x0 := value.Field(i)
@@ -48,7 +49,7 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 			}
 			s0, ok0 := x.(*string)
 			if ok0 {
-				if len(*s0) == 0 {
+				if s0 == nil || len(*s0) == 0 {
 					continue
 				}
 				ps = true
@@ -98,9 +99,12 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 			var keywordQuery primitive.Regex
 			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
 			var searchValue string
+			var key string
+			var ok bool
 			if len(psv) > 0 {
 				const defaultKey = "contain"
-				if key, ok := value.Type().Field(i).Tag.Lookup("match"); ok {
+				key, ok = value.Type().Field(i).Tag.Lookup("match")
+				if ok {
 					if format, exist := keywordFormat[key]; exist {
 						searchValue = fmt.Sprintf(format, psv)
 					} else {
@@ -110,7 +114,8 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 					searchValue = fmt.Sprintf(format, psv)
 				}
 			} else if len(keyword) > 0 {
-				if key, ok := value.Type().Field(i).Tag.Lookup("keyword"); ok {
+				key, ok = value.Type().Field(i).Tag.Lookup("keyword")
+				if ok {
 					if format, exist := keywordFormat[key]; exist {
 						searchValue = fmt.Sprintf(format, keyword)
 					} else {
@@ -119,8 +124,13 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 				}
 			}
 			if len(searchValue) > 0 {
-				keywordQuery = primitive.Regex{Pattern: searchValue}
-				query[columnName] = keywordQuery
+				if key == "equal" {
+					query[columnName] = searchValue
+				} else {
+					keywordQuery = primitive.Regex{Pattern: searchValue}
+					query[columnName] = keywordQuery
+				}
+
 			}
 		} else if rangeTime, ok := x.(*search.TimeRange); ok && rangeTime != nil {
 			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
