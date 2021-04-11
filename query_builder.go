@@ -37,7 +37,32 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 		"contain": "\\w*%v\\w*",
 	}
 	for i := 0; i < numField; i++ {
-		x := value.Field(i).Interface()
+		x0 := value.Field(i)
+		k0 := x0.Kind()
+		x := x0.Interface()
+		ps := false
+		var psv string
+		if k0 == reflect.Ptr {
+			if x == nil {
+				continue
+			}
+			s0, ok0 := x.(*string)
+			if ok0 {
+				if len(*s0) == 0 {
+					continue
+				}
+				ps = true
+				psv = *s0
+			}
+		}
+		s0, ok0 := x.(string)
+		if ok0 {
+			if len(s0) == 0 {
+				continue
+			}
+			psv = s0
+		}
+		ks := k0.String()
 		if v, ok := x.(*search.SearchModel); ok {
 			if len(v.Fields) > 0 {
 				for _, key := range v.Fields {
@@ -69,6 +94,34 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 				keyword = strings.TrimSpace(v.Keyword)
 			}
 			continue
+		} else if ps || ks == "string" {
+			var keywordQuery primitive.Regex
+			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
+			var searchValue string
+			if len(psv) > 0 {
+				const defaultKey = "contain"
+				if key, ok := value.Type().Field(i).Tag.Lookup("match"); ok {
+					if format, exist := keywordFormat[key]; exist {
+						searchValue = fmt.Sprintf(format, psv)
+					} else {
+						log.Panicf("match not support \"%v\" format\n", key)
+					}
+				} else if format, exist := keywordFormat[defaultKey]; exist {
+					searchValue = fmt.Sprintf(format, psv)
+				}
+			} else if len(keyword) > 0 {
+				if key, ok := value.Type().Field(i).Tag.Lookup("keyword"); ok {
+					if format, exist := keywordFormat[key]; exist {
+						searchValue = fmt.Sprintf(format, keyword)
+					} else {
+						log.Panicf("keyword not support \"%v\" format\n", key)
+					}
+				}
+			}
+			if len(searchValue) > 0 {
+				keywordQuery = primitive.Regex{Pattern: searchValue}
+				query[columnName] = keywordQuery
+			}
 		} else if rangeTime, ok := x.(*search.TimeRange); ok && rangeTime != nil {
 			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
 			actionDateQuery := bson.M{}
@@ -147,44 +200,13 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 			if len(amountQuery) > 0 {
 				query[columnName] = amountQuery
 			}
-		} else if value.Field(i).Kind().String() == "slice" {
+		} else if ks == "slice" {
 			actionDateQuery := bson.M{}
 			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
 			actionDateQuery["$in"] = x
 			query[columnName] = actionDateQuery
-		} else if value.Field(i).Kind().String() == "string" {
-			var keywordQuery primitive.Regex
-			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
-			var searchValue string
-			if value.Field(i).Len() > 0 {
-				const defaultKey = "contain"
-				if key, ok := value.Type().Field(i).Tag.Lookup("match"); ok {
-					if format, exist := keywordFormat[key]; exist {
-						searchValue = fmt.Sprintf(format, value.Field(i).Interface())
-					} else {
-						log.Panicf("match not support \"%v\" format\n", key)
-
-					}
-				} else if format, exist := keywordFormat[defaultKey]; exist {
-					searchValue = fmt.Sprintf(format, value.Field(i).Interface())
-				}
-			} else if len(keyword) > 0 {
-				if key, ok := value.Type().Field(i).Tag.Lookup("keyword"); ok {
-					if format, exist := keywordFormat[key]; exist {
-						searchValue = fmt.Sprintf(format, keyword)
-
-					} else {
-						log.Panicf("keyword not support \"%v\" format\n", key)
-					}
-				}
-			}
-			if len(searchValue) > 0 {
-				keywordQuery = primitive.Regex{Pattern: searchValue}
-				query[columnName] = keywordQuery
-			}
 		} else {
-			t := value.Field(i).Kind().String()
-			if _, ok := x.(*search.SearchModel); t == "bool" || (strings.Contains(t, "int") && x != 0) || (strings.Contains(t, "float") && x != 0) || (!ok && t == "ptr" &&
+			if _, ok := x.(*search.SearchModel); ks == "bool" || (strings.Contains(ks, "int") && x != 0) || (strings.Contains(ks, "float") && x != 0) || (!ok && ks == "ptr" &&
 				value.Field(i).Pointer() != 0) {
 				columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
 				if len(columnName) > 0 {
