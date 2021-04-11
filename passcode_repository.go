@@ -30,18 +30,18 @@ func NewPasscodeRepository(db *mongo.Database, collectionName string, options ..
 	return &PasscodeRepository{db.Collection(collectionName), passcodeName, expiredAtName}
 }
 
-func (r *PasscodeRepository) Save(ctx context.Context, id string, passcode string, expiredAt time.Time) (int64, error) {
+func (p *PasscodeRepository) Save(ctx context.Context, id string, passcode string, expiredAt time.Time) (int64, error) {
 	pass := make(map[string]interface{})
 	pass["_id"] = id
-	pass[r.passcodeName] = passcode
-	pass[r.expiredAtName] = expiredAt
+	pass[p.passcodeName] = passcode
+	pass[p.expiredAtName] = expiredAt
 	idQuery := bson.M{"_id": id}
-	return UpsertOne(ctx, r.collection, idQuery, pass)
+	return UpsertOne(ctx, p.collection, idQuery, pass)
 }
 
-func (r *PasscodeRepository) Load(ctx context.Context, id string) (string, time.Time, error) {
+func (p *PasscodeRepository) Load(ctx context.Context, id string) (string, time.Time, error) {
 	idQuery := bson.M{"_id": id}
-	x := r.collection.FindOne(ctx, idQuery)
+	x := p.collection.FindOne(ctx, idQuery)
 	er1 := x.Err()
 	if er1 != nil {
 		if strings.Compare(fmt.Sprint(er1), "mongo: no documents in result") == 0 {
@@ -54,12 +54,12 @@ func (r *PasscodeRepository) Load(ctx context.Context, id string) (string, time.
 		return "", time.Now().Add(-24 * time.Hour), er3
 	}
 
-	code := strings.Trim(k.Lookup(r.passcodeName).String(), "\"")
-	expiredAt := k.Lookup(r.expiredAtName).Time()
+	code := strings.Trim(k.Lookup(p.passcodeName).String(), "\"")
+	expiredAt := k.Lookup(p.expiredAtName).Time()
 	return code, expiredAt, nil
 }
 
-func (r *PasscodeRepository) Delete(ctx context.Context, id string) (int64, error) {
+func (p *PasscodeRepository) Delete(ctx context.Context, id string) (int64, error) {
 	idQuery := bson.M{"_id": id}
-	return DeleteOne(ctx, r.collection, idQuery)
+	return DeleteOne(ctx, p.collection, idQuery)
 }
