@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-type LocationMapper struct {
+type PointMapper struct {
 	modelType      reflect.Type
 	latitudeIndex  int
 	longitudeIndex int
@@ -16,7 +16,7 @@ type LocationMapper struct {
 	bsonName       string
 }
 
-func NewMapper(modelType reflect.Type, options ...string) *LocationMapper {
+func NewMapper(modelType reflect.Type, options ...string) *PointMapper {
 	var bsonName, latitudeName, longitudeName string
 	if len(options) >= 1 && len(options[0]) > 0 {
 		bsonName = options[0]
@@ -37,10 +37,10 @@ func NewMapper(modelType reflect.Type, options ...string) *LocationMapper {
 	if len(bsonName) > 0 {
 		bsonIndex = FindFieldIndex(modelType, bsonName)
 	} else {
-		bsonIndex = FindLocationIndex(modelType)
+		bsonIndex = FindCoordinatesIndex(modelType)
 	}
 
-	return &LocationMapper{
+	return &PointMapper{
 		modelType:      modelType,
 		latitudeIndex:  latitudeIndex,
 		longitudeIndex: longitudeIndex,
@@ -51,19 +51,19 @@ func NewMapper(modelType reflect.Type, options ...string) *LocationMapper {
 	}
 }
 
-func (s *LocationMapper) DbToModel(ctx context.Context, model interface{}) (interface{}, error) {
+func (s *PointMapper) DbToModel(ctx context.Context, model interface{}) (interface{}, error) {
 	valueModelObject := reflect.Indirect(reflect.ValueOf(model))
 	if valueModelObject.Kind() == reflect.Ptr {
 		valueModelObject = reflect.Indirect(valueModelObject)
 	}
 	k := valueModelObject.Kind()
 	if k == reflect.Map || k == reflect.Struct {
-		s.bsonToLocation(valueModelObject, s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
+		s.bsonToPoint(valueModelObject, s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
 	}
 	return model, nil
 }
 
-func (s *LocationMapper) DbToModels(ctx context.Context, model interface{}) (interface{}, error) {
+func (s *PointMapper) DbToModels(ctx context.Context, model interface{}) (interface{}, error) {
 	valueModelObject := reflect.Indirect(reflect.ValueOf(model))
 	if valueModelObject.Kind() == reflect.Ptr {
 		valueModelObject = reflect.Indirect(valueModelObject)
@@ -71,19 +71,19 @@ func (s *LocationMapper) DbToModels(ctx context.Context, model interface{}) (int
 
 	if valueModelObject.Kind() == reflect.Slice {
 		for i := 0; i < valueModelObject.Len(); i++ {
-			s.bsonToLocation(valueModelObject.Index(i), s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
+			s.bsonToPoint(valueModelObject.Index(i), s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
 		}
 	}
 	return model, nil
 }
 
-func (s *LocationMapper) ModelToDb(ctx context.Context, model interface{}) (interface{}, error) {
+func (s *PointMapper) ModelToDb(ctx context.Context, model interface{}) (interface{}, error) {
 	m, ok := model.(map[string]interface{})
 	if ok {
 		latJson := GetJsonByIndex(s.modelType, s.latitudeIndex)
 		logJson := GetJsonByIndex(s.modelType, s.longitudeIndex)
 		bs := GetBsonNameByIndex(s.modelType, s.bsonIndex)
-		m2 := LocationMapToBson(m, bs, latJson, logJson)
+		m2 := PointMapToBson(m, bs, latJson, logJson)
 		return m2, nil
 	}
 	valueModelObject := reflect.Indirect(reflect.ValueOf(model))
@@ -92,11 +92,11 @@ func (s *LocationMapper) ModelToDb(ctx context.Context, model interface{}) (inte
 		valueModelObject = reflect.Indirect(valueModelObject)
 	}
 	if k == reflect.Struct {
-		LocationToBson(valueModelObject, s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
+		PointToBson(valueModelObject, s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
 	}
 	return model, nil
 }
-func (s *LocationMapper) ModelsToDb(ctx context.Context, model interface{}) (interface{}, error) {
+func (s *PointMapper) ModelsToDb(ctx context.Context, model interface{}) (interface{}, error) {
 	valueModelObject := reflect.Indirect(reflect.ValueOf(model))
 	if valueModelObject.Kind() == reflect.Ptr {
 		valueModelObject = reflect.Indirect(valueModelObject)
@@ -104,13 +104,13 @@ func (s *LocationMapper) ModelsToDb(ctx context.Context, model interface{}) (int
 
 	if valueModelObject.Kind() == reflect.Slice {
 		for i := 0; i < valueModelObject.Len(); i++ {
-			LocationToBson(valueModelObject.Index(i), s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
+			PointToBson(valueModelObject.Index(i), s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
 		}
 	}
 	return model, nil
 }
 
-func BsonToLocation(value reflect.Value, bsonIndex int, latitudeIndex int, longitudeIndex int) {
+func BsonToPoint(value reflect.Value, bsonIndex int, latitudeIndex int, longitudeIndex int) {
 	if value.Kind() == reflect.Struct {
 		x := reflect.Indirect(value)
 		b := x.Field(bsonIndex)
@@ -141,7 +141,7 @@ func BsonToLocation(value reflect.Value, bsonIndex int, latitudeIndex int, longi
 		}
 	}
 }
-func (s *LocationMapper) bsonToLocation(value reflect.Value, bsonIndex int, latitudeIndex int, longitudeIndex int) {
+func (s *PointMapper) bsonToPoint(value reflect.Value, bsonIndex int, latitudeIndex int, longitudeIndex int) {
 	if value.Kind() == reflect.Struct {
 		x := reflect.Indirect(value)
 		b := x.Field(bsonIndex)
@@ -197,7 +197,7 @@ func (s *LocationMapper) bsonToLocation(value reflect.Value, bsonIndex int, lati
 		value.SetMapIndex(reflect.ValueOf(arrLatLongTag), reflect.Value{})
 	}
 }
-func LocationMapToBson(m map[string]interface{}, bsonName string, latitudeJson string, longitudeJson string) map[string]interface{} {
+func PointMapToBson(m map[string]interface{}, bsonName string, latitudeJson string, longitudeJson string) map[string]interface{} {
 	latV, ok1 := m[latitudeJson]
 	logV, ok2 := m[longitudeJson]
 	if ok1 && ok2 && len(bsonName) > 0 {
@@ -206,7 +206,7 @@ func LocationMapToBson(m map[string]interface{}, bsonName string, latitudeJson s
 		if ok3 && ok4 {
 			var arr []float64
 			arr = append(arr, la, lo)
-			ml := MongoLocation{Type: "Point", Coordinates: arr}
+			ml := Coordinates{Type: "Point", Coordinates: arr}
 			m2 := make(map[string]interface{})
 			m2[bsonName] = ml
 			for key := range m {
@@ -219,7 +219,7 @@ func LocationMapToBson(m map[string]interface{}, bsonName string, latitudeJson s
 	}
 	return m
 }
-func LocationToBson(value reflect.Value, bsonIndex int, latitudeIndex int, longitudeIndex int) {
+func PointToBson(value reflect.Value, bsonIndex int, latitudeIndex int, longitudeIndex int) {
 	v := reflect.Indirect(value)
 	latitudeField := v.Field(latitudeIndex)
 	latNil := false
@@ -245,14 +245,14 @@ func LocationToBson(value reflect.Value, bsonIndex int, latitudeIndex int, longi
 		if ok3 && ok4 {
 			var arr []float64
 			arr = append(arr, la, lo)
-			locationField := v.Field(bsonIndex)
-			if locationField.Kind() == reflect.Ptr {
-				m := &MongoLocation{Type: "Point", Coordinates: arr}
-				locationField.Set(reflect.ValueOf(m))
+			coordinatesField := v.Field(bsonIndex)
+			if coordinatesField.Kind() == reflect.Ptr {
+				m := &Coordinates{Type: "Point", Coordinates: arr}
+				coordinatesField.Set(reflect.ValueOf(m))
 			} else {
-				x := locationField.FieldByName("Type")
+				x := coordinatesField.FieldByName("Type")
 				x.Set(reflect.ValueOf("Point"))
-				y := locationField.FieldByName("Coordinates")
+				y := coordinatesField.FieldByName("Coordinates")
 				y.Set(reflect.ValueOf(arr))
 			}
 		}
