@@ -2,6 +2,7 @@
 #### Utilities
 - Mongo Client Utilities
 - HealthChecker and ServerInfoChecker
+- PointMapper: map latitude and longitude to mongo point
 - FieldLoader
 #### For Authentication, Sign in, Sign up, Password
 - PasscodeRepository
@@ -32,11 +33,11 @@ import "github.com/common-go/mongo"
 ```
 
 You can optimize the import by version:
-- v0.0.2: HealthChecker and ServerInfoChecker
+- v0.0.2: PointMapper, HealthChecker and ServerInfoChecker
 - v0.0.3: Utilities to support query, find one by Id, Mapper, FieldLoader, PasscodeRepository
 - v0.0.4: Utilities to support insert, update, patch, upsert, delete
 - v0.0.5: Utilities to support batch update
-- v0.1.0: Loader, Writer, Inserter, Updater, Upserter, BatchInserter, BatchUpdater, BatchPatcher, BatchWriter
+- v0.1.1: Loader, Writer, Inserter, Updater, Upserter, BatchInserter, BatchUpdater, BatchPatcher, BatchWriter
 - v0.3.0: Searcher
 
 ## Example
