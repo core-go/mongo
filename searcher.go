@@ -8,30 +8,21 @@ import (
 )
 
 type Searcher struct {
-	search func(ctx context.Context, m interface{}) (interface{}, int64, error)
+	search func(ctx context.Context, searchModel interface{}, results interface{}, pageIndex int64, pageSize int64, options...int64) (int64, error)
 }
 
-func NewSearcher(search func(ctx context.Context, m interface{}) (interface{}, int64, error)) *Searcher {
+func NewSearcher(search func(context.Context, interface{}, interface{}, int64, int64, ...int64) (int64, error)) *Searcher {
 	return &Searcher{search: search}
 }
 
-func (s *Searcher) Search(ctx context.Context, m interface{}) (interface{}, int64, error) {
-	return s.search(ctx, m)
+func (s *Searcher) Search(ctx context.Context, m interface{}, results interface{}, pageIndex int64, pageSize int64, options...int64) (int64, error) {
+	return s.search(ctx, m, results, pageIndex, pageSize, options...)
 }
 
-func NewSearcherWithExtract(db *mongo.Database, collectionName string, modelType reflect.Type, buildQuery func(sm interface{}) (bson.M, bson.M), buildSort func(s string, modelType reflect.Type) bson.M, extract func(m interface{}) (string, int64, int64, int64, error), options...func(context.Context, interface{}) (interface{}, error)) *Searcher {
-	builder := NewSearchBuilder(db, collectionName, modelType, buildQuery, buildSort, extract, options...)
-	return NewSearcher(builder.Search)
+func NewSearcherWithQuery(db *mongo.Database, collectionName string, buildQuery func(interface{}) (bson.M, bson.M), getSort func(interface{}) (string, error), options ...func(context.Context, interface{}) (interface{}, error)) *Searcher {
+	return NewSearcherWithQueryAndSort(db, collectionName, buildQuery, getSort, BuildSort, options...)
 }
-func NewSearcherWithMap(db *mongo.Database, collectionName string, modelType reflect.Type, buildQuery func(sm interface{}) (bson.M, bson.M), buildSort func(s string, modelType reflect.Type) bson.M, mp func(context.Context, interface{}) (interface{}, error), options ...func(m interface{}) (string, int64, int64, int64, error)) *Searcher {
-	builder := NewSearchBuilderWithMap(db, collectionName, modelType, buildQuery, buildSort, mp, options...)
-	return NewSearcher(builder.Search)
-}
-func NewSearcherWithQuery(db *mongo.Database, collectionName string, modelType reflect.Type, buildQuery func(sm interface{}) (bson.M, bson.M), options ...func(context.Context, interface{}) (interface{}, error)) *Searcher {
-	builder := NewSearcherWithQuery(db, collectionName, modelType, buildQuery, options...)
-	return NewSearcher(builder.Search)
-}
-func NewDefaultSearcher(db *mongo.Database, collectionName string, modelType reflect.Type, mp func(context.Context, interface{}) (interface{}, error), options ...func(m interface{}) (string, int64, int64, int64, error)) *Searcher {
-	builder := NewDefaultSearchBuilder(db, collectionName, modelType, mp, options...)
+func NewSearcherWithQueryAndSort(db *mongo.Database, collectionName string, buildQuery func(interface{}) (bson.M, bson.M), getSort func(interface{}) (string, error), buildSort func(string, reflect.Type) bson.M, options ...func(context.Context, interface{}) (interface{}, error)) *Searcher {
+	builder := NewSearchBuilderWithSort(db, collectionName, buildQuery, getSort, buildSort, options...)
 	return NewSearcher(builder.Search)
 }

@@ -1,7 +1,6 @@
 package mongo
 
 import (
-	"errors"
 	"fmt"
 	"github.com/common-go/search"
 	"go.mongodb.org/mongo-driver/bson"
@@ -38,13 +37,13 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 		"equal":   "%v",
 	}
 	for i := 0; i < numField; i++ {
-		x0 := value.Field(i)
-		k0 := x0.Kind()
-		x := x0.Interface()
+		field := value.Field(i)
+		kind := field.Kind()
+		x := field.Interface()
 		ps := false
 		var psv string
-		if k0 == reflect.Ptr {
-			if x == nil {
+		if kind == reflect.Ptr {
+			if field.IsNil() {
 				continue
 			}
 			s0, ok0 := x.(*string)
@@ -63,7 +62,7 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 			}
 			psv = s0
 		}
-		ks := k0.String()
+		ks := kind.String()
 		if v, ok := x.(*search.SearchModel); ok {
 			if len(v.Fields) > 0 {
 				for _, key := range v.Fields {
@@ -226,19 +225,4 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 		}
 	}
 	return query, fields
-}
-
-func ExtractSearchInfo(m interface{}) (string, int64, int64, int64, error) {
-	if sModel, ok := m.(*search.SearchModel); ok {
-		return sModel.Sort, sModel.Page, sModel.Limit, sModel.FirstLimit, nil
-	} else {
-		value := reflect.Indirect(reflect.ValueOf(m))
-		numField := value.NumField()
-		for i := 0; i < numField; i++ {
-			if sModel1, ok := value.Field(i).Interface().(*search.SearchModel); ok {
-				return sModel1.Sort, sModel1.Page, sModel1.Limit, sModel1.FirstLimit, nil
-			}
-		}
-		return "", 0, 0, 0, errors.New("cannot extract sort, pageIndex, pageSize, firstPageSize from model")
-	}
 }
