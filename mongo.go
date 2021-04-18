@@ -792,6 +792,7 @@ func FindCoordinatesIndex(modelType reflect.Type) int {
 	}
 	return -1
 }
+
 //For Get By Id
 func FindFieldIndex(modelType reflect.Type, fieldName string) int {
 	numField := modelType.NumField()
@@ -1189,26 +1190,6 @@ func InArray(value int, arr []int) bool {
 	return false
 }
 
-func GetBsonNameForSort(modelType reflect.Type, sortField string) string {
-	sortField = strings.TrimSpace(sortField)
-	idx, fieldName, name := GetFieldByJson(modelType, sortField)
-	if len(name) > 0 {
-		return name
-	}
-	if idx >= 0 {
-		return fieldName
-	}
-	return sortField
-}
-
-func GetSortType(sortType string) int {
-	if sortType == "-" {
-		return -1
-	} else {
-		return 1
-	}
-}
-
 func MapModels(ctx context.Context, models interface{}, mp func(context.Context, interface{}) (interface{}, error)) (interface{}, error) {
 	valueModelObject := reflect.Indirect(reflect.ValueOf(models))
 	if valueModelObject.Kind() == reflect.Ptr {
@@ -1222,7 +1203,7 @@ func MapModels(ctx context.Context, models interface{}, mp func(context.Context,
 			if k == reflect.Struct {
 				y := x.Addr().Interface()
 				mp(ctx, y)
-			} else  {
+			} else {
 				y := x.Interface()
 				mp(ctx, y)
 			}

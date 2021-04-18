@@ -10,7 +10,11 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func BuildSearchResult(ctx context.Context, collection *mongo.Collection, results interface{}, query bson.M, fields bson.M, sort bson.M, pageIndex int64, pageSize int64, initPageSize int64, mp func(context.Context, interface{}) (interface{}, error)) (int64, error) {
+func BuildSearchResult(ctx context.Context, collection *mongo.Collection, results interface{}, query bson.M, fields bson.M, sort bson.M, pageIndex int64, pageSize int64, initPageSize int64, opts ...func(context.Context, interface{}) (interface{}, error)) (int64, error) {
+	var mp func(context.Context, interface{}) (interface{}, error)
+	if len(opts) > 0 {
+		mp = opts[0]
+	}
 	optionsFind := options.Find()
 	optionsFind.Projection = fields
 	if initPageSize > 0 {
@@ -69,4 +73,24 @@ func BuildSort(s string, modelType reflect.Type) bson.M {
 		sort[columnName] = sortType
 	}
 	return sort
+}
+
+func GetBsonNameForSort(modelType reflect.Type, sortField string) string {
+	sortField = strings.TrimSpace(sortField)
+	idx, fieldName, name := GetFieldByJson(modelType, sortField)
+	if len(name) > 0 {
+		return name
+	}
+	if idx >= 0 {
+		return fieldName
+	}
+	return sortField
+}
+
+func GetSortType(sortType string) int {
+	if sortType == "-" {
+		return -1
+	} else {
+		return 1
+	}
 }

@@ -19,7 +19,7 @@ type Writer struct {
 func NewWriterWithVersion(db *mongo.Database, collectionName string, modelType reflect.Type, idObjectId bool, versionField string, options ...Mapper) *Writer {
 	var mapper Mapper
 	var loader *Loader
-	if len(options) > 0 && options[0] != nil {
+	if len(options) > 0 {
 		mapper = options[0]
 		loader = NewMongoLoader(db, collectionName, modelType, idObjectId, mapper.DbToModel)
 	} else {
