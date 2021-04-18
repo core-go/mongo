@@ -19,10 +19,10 @@ func (s *Searcher) Search(ctx context.Context, m interface{}, results interface{
 	return s.search(ctx, m, results, pageIndex, pageSize, options...)
 }
 
-func NewSearcherWithQuery(db *mongo.Database, collectionName string, buildQuery func(interface{}) (bson.M, bson.M), getSort func(interface{}) (string, error), options ...func(context.Context, interface{}) (interface{}, error)) *Searcher {
+func NewSearcherWithQuery(db *mongo.Database, collectionName string, buildQuery func(interface{}) (bson.M, bson.M), getSort func(interface{}) string, options ...func(context.Context, interface{}) (interface{}, error)) *Searcher {
 	return NewSearcherWithQueryAndSort(db, collectionName, buildQuery, getSort, BuildSort, options...)
 }
-func NewSearcherWithQueryAndSort(db *mongo.Database, collectionName string, buildQuery func(interface{}) (bson.M, bson.M), getSort func(interface{}) (string, error), buildSort func(string, reflect.Type) bson.M, options ...func(context.Context, interface{}) (interface{}, error)) *Searcher {
+func NewSearcherWithQueryAndSort(db *mongo.Database, collectionName string, buildQuery func(interface{}) (bson.M, bson.M), getSort func(interface{}) string, buildSort func(string, reflect.Type) bson.M, options ...func(context.Context, interface{}) (interface{}, error)) *Searcher {
 	builder := NewSearchBuilderWithSort(db, collectionName, buildQuery, getSort, buildSort, options...)
 	return NewSearcher(builder.Search)
 }

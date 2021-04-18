@@ -7,16 +7,16 @@ import (
 	"reflect"
 )
 
-func NewSearchLoaderWithQueryAndSort(db *mongo.Database, collection string, modelType reflect.Type, buildQuery func(interface{}) (bson.M, bson.M), getSort func(interface{}) (string, error), buildSort func(string, reflect.Type) bson.M, options ...func(context.Context, interface{}) (interface{}, error)) (*Searcher, *Loader) {
+func NewSearchLoaderWithQueryAndSort(db *mongo.Database, collection string, modelType reflect.Type, buildQuery func(interface{}) (bson.M, bson.M), getSort func(interface{}) string, buildSort func(string, reflect.Type) bson.M, options ...func(context.Context, interface{}) (interface{}, error)) (*Searcher, *Loader) {
 	return NewMongoSearchLoaderWithQueryAndSort(db, collection, modelType, false, buildQuery, getSort, buildSort, options...)
 }
-func NewMongoSearchLoaderWithQuery(db *mongo.Database, collection string, modelType reflect.Type, idObjectId bool, buildQuery func(interface{}) (bson.M, bson.M), getSort func(interface{}) (string, error), options ...func(context.Context, interface{}) (interface{}, error)) (*Searcher, *Loader) {
+func NewMongoSearchLoaderWithQuery(db *mongo.Database, collection string, modelType reflect.Type, idObjectId bool, buildQuery func(interface{}) (bson.M, bson.M), getSort func(interface{}) string, options ...func(context.Context, interface{}) (interface{}, error)) (*Searcher, *Loader) {
 	return NewMongoSearchLoaderWithQueryAndSort(db, collection, modelType, idObjectId, buildQuery, getSort, BuildSort, options...)
 }
-func NewSearchLoaderWithQuery(db *mongo.Database, collection string, modelType reflect.Type, buildQuery func(interface{}) (bson.M, bson.M), getSort func(interface{}) (string, error), options ...func(context.Context, interface{}) (interface{}, error)) (*Searcher, *Loader) {
+func NewSearchLoaderWithQuery(db *mongo.Database, collection string, modelType reflect.Type, buildQuery func(interface{}) (bson.M, bson.M), getSort func(interface{}) string, options ...func(context.Context, interface{}) (interface{}, error)) (*Searcher, *Loader) {
 	return NewMongoSearchLoaderWithQueryAndSort(db, collection, modelType, false, buildQuery, getSort, BuildSort, options...)
 }
-func NewMongoSearchLoaderWithQueryAndSort(db *mongo.Database, collection string, modelType reflect.Type, idObjectId bool, buildQuery func(interface{}) (bson.M, bson.M), getSort func(interface{}) (string, error), buildSort func(string, reflect.Type) bson.M, options ...func(context.Context, interface{}) (interface{}, error)) (*Searcher, *Loader) {
+func NewMongoSearchLoaderWithQueryAndSort(db *mongo.Database, collection string, modelType reflect.Type, idObjectId bool, buildQuery func(interface{}) (bson.M, bson.M), getSort func(interface{}) string, buildSort func(string, reflect.Type) bson.M, options ...func(context.Context, interface{}) (interface{}, error)) (*Searcher, *Loader) {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) > 0 && options[0] != nil {
 		mp = options[0]
