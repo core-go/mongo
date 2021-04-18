@@ -1,26 +1,27 @@
-package mongo
+package query
 
 import (
 	"fmt"
-	"github.com/common-go/search"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"log"
 	"reflect"
 	"strings"
+
+	"github.com/common-go/search"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type QueryBuilder struct {
+type Builder struct {
 	ModelType reflect.Type
 }
 
-func NewQueryBuilder(resultModelType reflect.Type) *QueryBuilder {
-	return &QueryBuilder{ModelType: resultModelType}
+func NewBuilder(resultModelType reflect.Type) *Builder {
+	return &Builder{ModelType: resultModelType}
 }
-func (b *QueryBuilder) BuildQuery(sm interface{}) (bson.M, bson.M) {
-	return BuildQuery(sm, b.ModelType)
+func (b *Builder) BuildQuery(sm interface{}) (bson.M, bson.M) {
+	return Build(sm, b.ModelType)
 }
-func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
+func Build(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 	var query = bson.M{}
 	var fields = bson.M{}
 
@@ -66,7 +67,7 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 		if v, ok := x.(*search.SearchModel); ok {
 			if len(v.Fields) > 0 {
 				for _, key := range v.Fields {
-					_, _, columnName := GetFieldByJson(resultModelType, key)
+					_, _, columnName := getFieldByJson(resultModelType, key)
 					if len(columnName) < 0 {
 						fields = bson.M{}
 						//fields = fields[len(fields):]
@@ -76,7 +77,7 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 				}
 			} else if len(v.Excluding) > 0 {
 				for key, val := range v.Excluding {
-					idx, fieldName, columnName := GetFieldByJson(resultModelType, key)
+					idx, fieldName, columnName := getFieldByJson(resultModelType, key)
 					if len(columnName) == 0 {
 						if idx >= 0 {
 							columnName = fieldName
@@ -96,7 +97,7 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 			continue
 		} else if ps || ks == "string" {
 			var keywordQuery primitive.Regex
-			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
+			columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
 			var searchValue string
 			var key string
 			var ok bool
@@ -132,21 +133,21 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 
 			}
 		} else if rangeTime, ok := x.(*search.TimeRange); ok && rangeTime != nil {
-			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
+			columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
 			actionDateQuery := bson.M{}
 			actionDateQuery["$gte"] = rangeTime.StartTime
 			query[columnName] = actionDateQuery
 			actionDateQuery["$lt"] = rangeTime.EndTime
 			query[columnName] = actionDateQuery
 		} else if rangeTime, ok := x.(search.TimeRange); ok {
-			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
+			columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
 			actionDateQuery := bson.M{}
 			actionDateQuery["$gte"] = rangeTime.StartTime
 			query[columnName] = actionDateQuery
 			actionDateQuery["$lt"] = rangeTime.EndTime
 			query[columnName] = actionDateQuery
 		} else if rangeDate, ok := x.(*search.DateRange); ok && rangeDate != nil {
-			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
+			columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
 			actionDateQuery := bson.M{}
 			if rangeDate.StartDate == nil && rangeDate.EndDate == nil {
 				continue
@@ -160,7 +161,7 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 			}
 			query[columnName] = actionDateQuery
 		} else if rangeDate, ok := x.(search.DateRange); ok {
-			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
+			columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
 			actionDateQuery := bson.M{}
 			if rangeDate.StartDate == nil && rangeDate.EndDate == nil {
 				continue
@@ -174,7 +175,7 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 			}
 			query[columnName] = actionDateQuery
 		} else if numberRange, ok := x.(*search.NumberRange); ok && numberRange != nil {
-			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
+			columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
 			amountQuery := bson.M{}
 
 			if numberRange.Min != nil {
@@ -192,7 +193,7 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 				query[columnName] = amountQuery
 			}
 		} else if numberRange, ok := x.(search.NumberRange); ok {
-			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
+			columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
 			amountQuery := bson.M{}
 
 			if numberRange.Min != nil {
@@ -211,13 +212,13 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 			}
 		} else if ks == "slice" {
 			actionDateQuery := bson.M{}
-			columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
+			columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
 			actionDateQuery["$in"] = x
 			query[columnName] = actionDateQuery
 		} else {
 			if _, ok := x.(*search.SearchModel); ks == "bool" || (strings.Contains(ks, "int") && x != 0) || (strings.Contains(ks, "float") && x != 0) || (!ok && ks == "ptr" &&
 				value.Field(i).Pointer() != 0) {
-				columnName := GetBsonName(resultModelType, value.Type().Field(i).Name)
+				columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
 				if len(columnName) > 0 {
 					query[columnName] = x
 				}
@@ -225,4 +226,30 @@ func BuildQuery(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 		}
 	}
 	return query, fields
+}
+
+func getFieldByJson(modelType reflect.Type, jsonName string) (int, string, string) {
+	numField := modelType.NumField()
+	for i := 0; i < numField; i++ {
+		field := modelType.Field(i)
+		tag1, ok1 := field.Tag.Lookup("json")
+		if ok1 && strings.Split(tag1, ",")[0] == jsonName {
+			if tag2, ok2 := field.Tag.Lookup("bson"); ok2 {
+				return i, field.Name, strings.Split(tag2, ",")[0]
+			}
+			return i, field.Name, ""
+		}
+	}
+	return -1, jsonName, jsonName
+}
+
+func getBsonName(modelType reflect.Type, fieldName string) string {
+	field, found := modelType.FieldByName(fieldName)
+	if !found {
+		return fieldName
+	}
+	if tag, ok := field.Tag.Lookup("bson"); ok {
+		return strings.Split(tag, ",")[0]
+	}
+	return fieldName
 }
