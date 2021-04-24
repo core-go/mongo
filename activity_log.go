@@ -17,11 +17,7 @@ type ActivityLogSchemaConfig struct {
 	Ext       *[]string `mapstructure:"ext" json:"ext,omitempty" gorm:"column:ext" bson:"ext,omitempty" dynamodbav:"ext,omitempty" firestore:"ext,omitempty"`
 }
 
-type IdGenerator interface {
-	Generate(ctx context.Context) (string, error)
-}
-
-func NewActivityLogWriter(database *mongo.Database, collectionName string, config ActivityLogConfig, schema ActivityLogSchemaConfig, generator IdGenerator) *ActivityLogWriter {
+func NewActivityLogWriter(database *mongo.Database, collectionName string, config ActivityLogConfig, schema ActivityLogSchemaConfig, generate func(context.Context) (string, error)) *ActivityLogWriter {
 	if len(schema.User) == 0 {
 		schema.User = "user"
 	}
@@ -41,7 +37,7 @@ func NewActivityLogWriter(database *mongo.Database, collectionName string, confi
 		schema.Desc = "desc"
 	}
 	col := database.Collection(collectionName)
-	sender := ActivityLogWriter{Database: database, Collection: col, Config: config, Schema: schema, Generator: generator}
+	sender := ActivityLogWriter{Database: database, Collection: col, Config: config, Schema: schema, Generate: generate}
 	return &sender
 }
 
@@ -50,7 +46,7 @@ type ActivityLogWriter struct {
 	Collection *mongo.Collection
 	Config     ActivityLogConfig
 	Schema     ActivityLogSchemaConfig
-	Generator  IdGenerator
+	Generate   func(ctx context.Context) (string, error)
 }
 
 type ActivityLogConfig struct {
@@ -79,8 +75,8 @@ func (s *ActivityLogWriter) Write(ctx context.Context, resource string, action s
 	if len(ch.Ip) > 0 {
 		log[ch.Ip] = GetString(ctx, s.Config.Ip)
 	}
-	if s.Generator != nil {
-		id, er0 := s.Generator.Generate(ctx)
+	if s.Generate != nil {
+		id, er0 := s.Generate(ctx)
 		if er0 == nil && len(id) > 0 {
 			log["_id"] = id
 		}
