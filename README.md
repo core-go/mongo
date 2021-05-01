@@ -20,47 +20,13 @@
 - Searcher
 
 ## Installation
-Please make sure to initialize a Go module before installing common-go/mongo:
+Please make sure to initialize a Go module before installing core-go/mongo:
 
 ```shell
-go get -u github.com/common-go/mongo
+go get -u github.com/core-go/mongo
 ```
 
 Import:
-
 ```go
-import "github.com/common-go/mongo"
-```
-
-You can optimize the import by version:
-- v0.0.1: Utilities to support query, find one by Id
-- v0.0.2: HealthChecker and ServerInfoChecker
-- v0.0.3: PointMapper
-- v0.0.4: FieldLoader
-- v0.0.5: PasscodeRepository
-- v0.0.6: Utilities to support insert, update, patch, upsert, delete
-- v0.0.7: Utilities to support batch update
-- v0.0.8: Loader, Writer, Inserter, Updater, Upserter, BatchInserter, BatchUpdater, BatchPatcher, BatchWriter
-- v0.3.0: Searcher
-
-## Example
-
-```go
-type User struct {
-	UserId    string `json:"id,omitempty" bson:"_id,omitempty"`
-	UserName  string `json:"userName,omitempty" bson:"userName,omitempty"`
-	Email     string `json:"email,omitempty" bson:"email,omitempty"`
-	FirstName string `json:"firstName,omitempty" bson:"firstName,omitempty"`
-	LastName  string `json:"lastName,omitempty" bson:"lastName,omitempty"`
-}
-
-func main() {
-	ctx := context.Background()
-	db, _ := mongo.CreateConnection(ctx, "mongodb://localhost:27017", "master_data")
-	collection := db.Collection("user")
-	result := collection.FindOne(ctx, bson.M{"_id": "1484e7bd3e884971b3affa813bf30af0"})
-	var user model.User
-	result.Decode(&user)
-	fmt.Println("email ", user.Email)
-}
+import "github.com/core-go/mongo"
 ```

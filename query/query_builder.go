@@ -2,13 +2,12 @@ package query
 
 import (
 	"fmt"
+	"github.com/core-go/search"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"log"
 	"reflect"
 	"strings"
-
-	"github.com/common-go/search"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type Builder struct {
