@@ -3,10 +3,9 @@ package mongo
 import (
 	"context"
 	"fmt"
-	"time"
-
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/x/bsonx"
+	"time"
 )
 
 type ServerInfoChecker struct {

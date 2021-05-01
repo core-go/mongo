@@ -2,10 +2,9 @@ package mongo
 
 import (
 	"context"
-	"reflect"
-
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"reflect"
 )
 
 type SearchBuilder struct {
