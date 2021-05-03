@@ -13,24 +13,21 @@ type Loader struct {
 	Collection *mongo.Collection
 	Map        func(ctx context.Context, model interface{}) (interface{}, error)
 	modelType  reflect.Type
-	idName     string
+	jsonIdName string
 	idIndex    int
 	idObjectId bool
-	keys       []string
 }
 
 func NewMongoLoader(db *mongo.Database, collectionName string, modelType reflect.Type, idObjectId bool, options ...func(context.Context, interface{}) (interface{}, error)) *Loader {
-	idIndex, idName, jsonIdName := FindIdField(modelType)
-	if len(idName) == 0 {
+	idIndex, _, jsonIdName := FindIdField(modelType)
+	if idIndex < 0 {
 		log.Println(modelType.Name() + " loader can't use functions that need Id value (Ex Load, Exist, Save, Update) because don't have any fields of " + modelType.Name() + " struct define _id bson tag.")
 	}
-	var idNames []string
-	idNames = append(idNames, jsonIdName)
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) > 0 {
 		mp = options[0]
 	}
-	return &Loader{db.Collection(collectionName), mp, modelType, idName, idIndex, idObjectId, idNames}
+	return &Loader{db.Collection(collectionName), mp, modelType, jsonIdName, idIndex, idObjectId}
 }
 
 func NewLoader(db *mongo.Database, collectionName string, modelType reflect.Type, options ...func(context.Context, interface{}) (interface{}, error)) *Loader {
@@ -41,8 +38,8 @@ func NewLoader(db *mongo.Database, collectionName string, modelType reflect.Type
 	return NewMongoLoader(db, collectionName, modelType, false, mp)
 }
 
-func (m *Loader) Keys() []string {
-	return m.keys
+func (m *Loader) Id() string {
+	return m.jsonIdName
 }
 
 func (m *Loader) All(ctx context.Context) (interface{}, error) {

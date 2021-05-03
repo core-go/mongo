@@ -87,7 +87,7 @@ func (m *Writer) Patch(ctx context.Context, model map[string]interface{}) (int64
 			return 0, fmt.Errorf("result of LocationToBson must be a map[string]interface{}")
 		}
 		if m.versionIndex >= 0 {
-			return PatchByIdAndVersion(ctx, m.Collection, m3, m.maps, m.idName, m.versionField)
+			return PatchByIdAndVersion(ctx, m.Collection, m3, m.maps, m.jsonIdName, m.versionField)
 		}
 		jsonName0 := GetJsonByIndex(m.modelType, m.idIndex)
 		idQuery := BuildQueryByIdFromMap(m3, jsonName0)
@@ -95,7 +95,7 @@ func (m *Writer) Patch(ctx context.Context, model map[string]interface{}) (int64
 		return PatchOne(ctx, m.Collection, b0, idQuery)
 	}
 	if m.versionIndex >= 0 {
-		return PatchByIdAndVersion(ctx, m.Collection, model, m.maps, m.idName, m.versionField)
+		return PatchByIdAndVersion(ctx, m.Collection, model, m.maps, m.jsonIdName, m.versionField)
 	}
 	jsonName := GetJsonByIndex(m.modelType, m.idIndex)
 	idQuery := BuildQueryByIdFromMap(model, jsonName)
