@@ -30,7 +30,7 @@ func NewHealthChecker(db *mongo.Database, options ...string) *HealthChecker {
 	} else {
 		name = "mongo"
 	}
-	return NewMongoHealthChecker(db, name, 4 * time.Second)
+	return NewMongoHealthChecker(db, name, 4*time.Second)
 }
 
 func (s *HealthChecker) Name() string {
@@ -61,6 +61,9 @@ func (s *HealthChecker) Check(ctx context.Context) (map[string]interface{}, erro
 func (s *HealthChecker) Build(ctx context.Context, data map[string]interface{}, err error) map[string]interface{} {
 	if err == nil {
 		return data
+	}
+	if data == nil {
+		data = make(map[string]interface{}, 0)
 	}
 	data["error"] = err.Error()
 	return data

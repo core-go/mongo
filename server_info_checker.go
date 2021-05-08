@@ -24,7 +24,7 @@ func NewServerInfoChecker(db *mongo.Database, options ...string) *ServerInfoChec
 	} else {
 		name = "mongo"
 	}
-	return NewServerInfoCheckerWithTimeout(db, name, 4 * time.Second)
+	return NewServerInfoCheckerWithTimeout(db, name, 4*time.Second)
 }
 
 func (s *ServerInfoChecker) Name() string {
@@ -56,6 +56,9 @@ func (s *ServerInfoChecker) Check(ctx context.Context) (map[string]interface{}, 
 func (s *ServerInfoChecker) Build(ctx context.Context, data map[string]interface{}, err error) map[string]interface{} {
 	if err == nil {
 		return data
+	}
+	if data == nil {
+		data = make(map[string]interface{}, 0)
 	}
 	data["error"] = err.Error()
 	return data
