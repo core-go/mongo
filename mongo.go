@@ -888,8 +888,8 @@ func GetBsonNameByIndex(modelType reflect.Type, fieldIndex int) string {
 	return ""
 }
 func GetBsonNameByModelIndex(model interface{}, fieldIndex int) string {
-	modelType := reflect.TypeOf(model).Elem()
-	if tag, ok := modelType.Field(fieldIndex).Tag.Lookup("bson"); ok {
+	t := reflect.TypeOf(model).Elem()
+	if tag, ok := t.Field(fieldIndex).Tag.Lookup("bson"); ok {
 		return strings.Split(tag, ",")[0]
 	}
 	return ""
@@ -897,9 +897,9 @@ func GetBsonNameByModelIndex(model interface{}, fieldIndex int) string {
 
 //For Update
 func BuildQueryByIdFromObject(object interface{}) bson.M {
-	valueOf := reflect.Indirect(reflect.ValueOf(object))
-	if idIndex, _, _ := FindIdField(valueOf.Type()); idIndex >= 0 {
-		value := valueOf.Field(idIndex).Interface()
+	vo := reflect.Indirect(reflect.ValueOf(object))
+	if idIndex, _, _ := FindIdField(vo.Type()); idIndex >= 0 {
+		value := vo.Field(idIndex).Interface()
 		return bson.M{"_id": value}
 	} else {
 		panic("id field not found")
@@ -1018,16 +1018,16 @@ func MapToMongoObject(model interface{}, idName string, objectId bool, newId boo
 }
 
 func getValue(model interface{}, index int) (interface{}, error) {
-	valueObject := reflect.Indirect(reflect.ValueOf(model))
-	return valueObject.Field(index).Interface(), nil
+	vo := reflect.Indirect(reflect.ValueOf(model))
+	return vo.Field(index).Interface(), nil
 }
 
 func setValue(model interface{}, index int, value interface{}) (interface{}, error) {
-	valueObject := reflect.Indirect(reflect.ValueOf(model))
+	vo := reflect.Indirect(reflect.ValueOf(model))
 	switch reflect.ValueOf(model).Kind() {
 	case reflect.Ptr:
 		{
-			valueObject.Field(index).Set(reflect.ValueOf(value))
+			vo.Field(index).Set(reflect.ValueOf(value))
 			return model, nil
 		}
 	default:
@@ -1108,27 +1108,27 @@ func BuildIdAndVersionQuery(query map[string]interface{}, model interface{}, ver
 
 func BuildIdAndVersionQueryByVersionIndex(query map[string]interface{}, model interface{}, versionIndex int) map[string]interface{} {
 	newMap := copyMap(query)
-	valueOfModel := reflect.Indirect(reflect.ValueOf(model))
-	if versionIndex >= 0 && versionIndex < valueOfModel.NumField() {
+	vo := reflect.Indirect(reflect.ValueOf(model))
+	if versionIndex >= 0 && versionIndex < vo.NumField() {
 		var valueOfCurrentVersion reflect.Value
-		valueOfCurrentVersion = valueOfModel.Field(versionIndex)
+		valueOfCurrentVersion = vo.Field(versionIndex)
 		versionColumnName := GetBsonNameByModelIndex(model, versionIndex)
 		newMap[versionColumnName] = valueOfCurrentVersion.Interface()
 		switch valueOfCurrentVersion.Kind().String() {
 		case "int":
 			{
 				nextVersion := reflect.ValueOf(valueOfCurrentVersion.Interface().(int) + 1)
-				valueOfModel.Field(versionIndex).Set(nextVersion)
+				vo.Field(versionIndex).Set(nextVersion)
 			}
 		case "int32":
 			{
 				nextVersion := reflect.ValueOf(valueOfCurrentVersion.Interface().(int32) + 1)
-				valueOfModel.Field(versionIndex).Set(nextVersion)
+				vo.Field(versionIndex).Set(nextVersion)
 			}
 		case "int64":
 			{
 				nextVersion := reflect.ValueOf(valueOfCurrentVersion.Interface().(int64) + 1)
-				valueOfModel.Field(versionIndex).Set(nextVersion)
+				vo.Field(versionIndex).Set(nextVersion)
 			}
 		default:
 			panic("not support type's version")
@@ -1191,14 +1191,14 @@ func InArray(value int, arr []int) bool {
 }
 
 func MapModels(ctx context.Context, models interface{}, mp func(context.Context, interface{}) (interface{}, error)) (interface{}, error) {
-	valueModelObject := reflect.Indirect(reflect.ValueOf(models))
-	if valueModelObject.Kind() == reflect.Ptr {
-		valueModelObject = reflect.Indirect(valueModelObject)
+	vo := reflect.Indirect(reflect.ValueOf(models))
+	if vo.Kind() == reflect.Ptr {
+		vo = reflect.Indirect(vo)
 	}
-	if valueModelObject.Kind() == reflect.Slice {
-		le := valueModelObject.Len()
+	if vo.Kind() == reflect.Slice {
+		le := vo.Len()
 		for i := 0; i < le; i++ {
-			x := valueModelObject.Index(i)
+			x := vo.Index(i)
 			k := x.Kind()
 			if k == reflect.Struct {
 				y := x.Addr().Interface()
