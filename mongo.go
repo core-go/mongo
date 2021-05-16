@@ -926,7 +926,7 @@ func MapToBson(object map[string]interface{}, objectMap map[string]string) map[s
 	return result
 }
 
-func MakeMapBson(modelType reflect.Type) map[string]string {
+func MakeBsonMap(modelType reflect.Type) map[string]string {
 	maps := make(map[string]string)
 	numField := modelType.NumField()
 	for i := 0; i < numField; i++ {

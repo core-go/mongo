@@ -28,10 +28,10 @@ func NewWriterWithVersion(db *mongo.Database, collectionName string, modelType r
 	if len(versionField) > 0 {
 		index := FindFieldIndex(modelType, versionField)
 		if index >= 0 {
-			return &Writer{Loader: loader, maps: MakeMapBson(modelType), versionField: versionField, versionIndex: index, Mapper: mapper}
+			return &Writer{Loader: loader, maps: MakeBsonMap(modelType), versionField: versionField, versionIndex: index, Mapper: mapper}
 		}
 	}
-	return &Writer{Loader: loader, maps: MakeMapBson(modelType), versionField: "", versionIndex: -1, Mapper: mapper}
+	return &Writer{Loader: loader, maps: MakeBsonMap(modelType), versionField: "", versionIndex: -1, Mapper: mapper}
 }
 func NewMongoWriter(db *mongo.Database, collectionName string, modelType reflect.Type, versionField string, options ...Mapper) *Writer {
 	return NewWriterWithVersion(db, collectionName, modelType, false, versionField, options...)
