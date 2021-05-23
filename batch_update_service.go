@@ -45,7 +45,7 @@ func (m *BatchUpdateService) UpdateMany(ctx context.Context, models interface{})
 
 func (m *BatchUpdateService) SaveMany(ctx context.Context, models interface{}) (int64, error) {
 	objects, _ := MapToMongoObjects(models, m.idName, m.idObjectId, m.modelType, false)
-	rs, err := UpsertMany(ctx, m.collection, objects)
+	rs, err := UpsertMany(ctx, m.collection, objects, m.idName)
 	if err != nil {
 		return 0, err
 	}

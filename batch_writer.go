@@ -8,18 +8,25 @@ import (
 
 type BatchWriter struct {
 	collection *mongo.Collection
+	IdName     string
 	Map        func(ctx context.Context, model interface{}) (interface{}, error)
 }
 
-func NewBatchWriter(database *mongo.Database, collectionName string, options...func(context.Context, interface{}) (interface{}, error)) *BatchWriter {
+func NewBatchWriterWithId(database *mongo.Database, collectionName string, modelType reflect.Type, fieldName string, options...func(context.Context, interface{}) (interface{}, error)) *BatchWriter {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
 		mp = options[0]
 	}
+	if len(fieldName) == 0 {
+		_, idName, _ := FindIdField(modelType)
+		fieldName = idName
+	}
 	collection := database.Collection(collectionName)
-	return &BatchWriter{collection, mp}
+	return &BatchWriter{collection, fieldName, mp}
 }
-
+func NewBatchWriter(database *mongo.Database, collectionName string, modelType reflect.Type, options...func(context.Context, interface{}) (interface{}, error)) *BatchWriter {
+	return NewBatchWriterWithId(database, collectionName, modelType, "", options...)
+}
 func (w *BatchWriter) Write(ctx context.Context, models interface{}) ([]int, []int, error) {
 	successIndices := make([]int, 0)
 	failIndices := make([]int, 0)
@@ -31,9 +38,9 @@ func (w *BatchWriter) Write(ctx context.Context, models interface{}) ([]int, []i
 		if er0 != nil {
 			return successIndices, failIndices, er0
 		}
-		_, err = UpsertMany(ctx, w.collection, m2)
+		_, err = UpsertMany(ctx, w.collection, m2, w.IdName)
 	} else {
-		_, err = UpsertMany(ctx, w.collection, models)
+		_, err = UpsertMany(ctx, w.collection, models, w.IdName)
 	}
 
 	if err == nil {

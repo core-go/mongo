@@ -461,7 +461,10 @@ func UpdateMany(ctx context.Context, collection *mongo.Collection, models interf
 			if index := findIndex(values.Index(0).Interface(), idName); index != -1 {
 				for i := 0; i < length; i++ {
 					row := values.Index(i).Interface()
-					v, _ := getValue(row, index)
+					v, er0 := getValue(row, index)
+					if er0 != nil {
+						return nil, er0
+					}
 					updateQuery := bson.M{
 						"$set": row,
 					}
@@ -705,23 +708,28 @@ func UpsertOneWithVersion(ctx context.Context, collection *mongo.Collection, mod
 	}
 }
 
-func UpsertMany(ctx context.Context, collection *mongo.Collection, model interface{}) (*mongo.BulkWriteResult, error) { //Patch
+func UpsertMany(ctx context.Context, collection *mongo.Collection, model interface{}, idName string) (*mongo.BulkWriteResult, error) { //Patch
 	models := make([]mongo.WriteModel, 0)
 	switch reflect.TypeOf(model).Kind() {
 	case reflect.Slice:
 		values := reflect.ValueOf(model)
 
 		n := values.Len()
-		for i := 0; i < n; i++ {
-			row := values.Index(i).Interface()
-			if v, ok := row.(bson.M); ok {
-				id := v["_id"]
-				if id != nil || (reflect.TypeOf(id).String() == "string") || (reflect.TypeOf(id).String() == "string" && len(id.(string)) > 0) { // if exist
-					updateModel := mongo.NewReplaceOneModel().SetUpsert(true).SetReplacement(row).SetFilter(bson.M{"_id": id})
-					models = append(models, updateModel)
-				} else {
-					insertModel := mongo.NewInsertOneModel().SetDocument(row)
-					models = append(models, insertModel)
+		if n > 0 {
+			if index := findIndex(values.Index(0).Interface(), idName); index != -1 {
+				for i := 0; i < n; i++ {
+					row := values.Index(i).Interface()
+					id, er0 := getValue(row, index)
+					if er0 != nil {
+						return nil, er0
+					}
+					if id != nil || (reflect.TypeOf(id).String() == "string") || (reflect.TypeOf(id).String() == "string" && len(id.(string)) > 0) { // if exist
+						updateModel := mongo.NewReplaceOneModel().SetUpsert(true).SetReplacement(row).SetFilter(bson.M{"_id": id})
+						models = append(models, updateModel)
+					} else {
+						insertModel := mongo.NewInsertOneModel().SetDocument(row)
+						models = append(models, insertModel)
+					}
 				}
 			}
 		}
