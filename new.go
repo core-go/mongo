@@ -82,23 +82,26 @@ func NewClientOptions(c MongoConfig) *options.ClientOptions {
 	}
 	return option
 }
-
-func SetupMongo(ctx context.Context, c MongoConfig) (*mongo.Database, error) {
-	option := NewClientOptions(c)
-	client, err := mongo.Connect(ctx, option)
+func ConnectToDatabase(ctx context.Context, conf MongoConfig) (*mongo.Database, error) {
+	return Setup(ctx, conf)
+}
+func Setup(ctx context.Context, conf MongoConfig) (*mongo.Database, error) {
+	client, err := Connect(ctx, conf)
 	if err != nil {
 		return nil, err
 	}
-	db := client.Database(c.Database)
+	db := client.Database(conf.Database)
 	return db, nil
 }
-
+func Connect(ctx context.Context, conf MongoConfig) (*mongo.Client, error) {
+	option := NewClientOptions(conf)
+	return mongo.Connect(ctx, option)
+}
 func CreateConnection(ctx context.Context, uri string, database string) (*mongo.Database, error) {
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
 		return nil, err
 	}
-
 	db := client.Database(database)
 	return db, nil
 }

@@ -6,13 +6,13 @@ import (
 	"reflect"
 )
 
-type Upserter struct {
+type MongoWriter struct {
 	collection *mongo.Collection
 	IdName     string
 	Map        func(ctx context.Context, model interface{}) (interface{}, error)
 }
 
-func NewUpserterById(database *mongo.Database, collectionName string, modelType reflect.Type, fieldName string, options ...func(context.Context, interface{}) (interface{}, error)) *Upserter {
+func NewMongoWriterById(database *mongo.Database, collectionName string, modelType reflect.Type, fieldName string, options ...func(context.Context, interface{}) (interface{}, error)) *MongoWriter {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
 		mp = options[0]
@@ -22,14 +22,14 @@ func NewUpserterById(database *mongo.Database, collectionName string, modelType 
 		_, idName, _ := FindIdField(modelType)
 		fieldName = idName
 	}
-	return &Upserter{collection: collection, IdName: fieldName, Map: mp}
+	return &MongoWriter{collection: collection, IdName: fieldName, Map: mp}
 }
 
-func NewUpserter(database *mongo.Database, collectionName string, modelType reflect.Type, options ...func(context.Context, interface{}) (interface{}, error)) *Upserter {
-	return NewUpserterById(database, collectionName, modelType, "", options...)
+func NewMongoWriter(database *mongo.Database, collectionName string, modelType reflect.Type, options ...func(context.Context, interface{}) (interface{}, error)) *MongoWriter {
+	return NewMongoWriterById(database, collectionName, modelType, "", options...)
 }
 
-func (w *Upserter) Write(ctx context.Context, model interface{}) error {
+func (w *MongoWriter) Write(ctx context.Context, model interface{}) error {
 	if w.Map != nil {
 		m2, er0 := w.Map(ctx, model)
 		if er0 != nil {
