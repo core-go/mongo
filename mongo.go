@@ -435,7 +435,7 @@ func Update(ctx context.Context, collection *mongo.Collection, model interface{}
 		_, err := UpdateOne(ctx, collection, model, query)
 		return err
 	}
-	return errors.New("Require field _id")
+	return errors.New("require field _id")
 }
 
 func UpdateOne(ctx context.Context, collection *mongo.Collection, model interface{}, query bson.M) (int64, error) { //Patch
@@ -462,7 +462,10 @@ func UpdateMany(ctx context.Context, collection *mongo.Collection, models interf
 				for i := 0; i < length; i++ {
 					row := values.Index(i).Interface()
 					v, _ := getValue(row, index)
-					updateModel := mongo.NewUpdateOneModel().SetUpdate(row).SetFilter(bson.M{"_id": v})
+					updateQuery := bson.M{
+						"$set": row,
+					}
+					updateModel := mongo.NewUpdateOneModel().SetUpdate(updateQuery).SetFilter(bson.M{"_id": v})
 					models_ = append(models_, updateModel)
 				}
 			}
