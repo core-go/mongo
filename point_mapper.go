@@ -64,14 +64,14 @@ func (s *PointMapper) DbToModel(ctx context.Context, model interface{}) (interfa
 }
 
 func (s *PointMapper) DbToModels(ctx context.Context, model interface{}) (interface{}, error) {
-	valueModelObject := reflect.Indirect(reflect.ValueOf(model))
-	if valueModelObject.Kind() == reflect.Ptr {
-		valueModelObject = reflect.Indirect(valueModelObject)
+	vo := reflect.Indirect(reflect.ValueOf(model))
+	if vo.Kind() == reflect.Ptr {
+		vo = reflect.Indirect(vo)
 	}
 
-	if valueModelObject.Kind() == reflect.Slice {
-		for i := 0; i < valueModelObject.Len(); i++ {
-			s.bsonToPoint(valueModelObject.Index(i), s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
+	if vo.Kind() == reflect.Slice {
+		for i := 0; i < vo.Len(); i++ {
+			s.bsonToPoint(vo.Index(i), s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
 		}
 	}
 	return model, nil
