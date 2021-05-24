@@ -86,25 +86,25 @@ func (s *PointMapper) ModelToDb(ctx context.Context, model interface{}) (interfa
 		m2 := PointMapToBson(m, bs, latJson, logJson)
 		return m2, nil
 	}
-	valueModelObject := reflect.Indirect(reflect.ValueOf(model))
-	k := valueModelObject.Kind()
+	vo := reflect.Indirect(reflect.ValueOf(model))
+	k := vo.Kind()
 	if k == reflect.Ptr {
-		valueModelObject = reflect.Indirect(valueModelObject)
+		vo = reflect.Indirect(vo)
 	}
 	if k == reflect.Struct {
-		PointToBson(valueModelObject, s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
+		PointToBson(vo, s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
 	}
 	return model, nil
 }
 func (s *PointMapper) ModelsToDb(ctx context.Context, model interface{}) (interface{}, error) {
-	valueModelObject := reflect.Indirect(reflect.ValueOf(model))
-	if valueModelObject.Kind() == reflect.Ptr {
-		valueModelObject = reflect.Indirect(valueModelObject)
+	vo := reflect.Indirect(reflect.ValueOf(model))
+	if vo.Kind() == reflect.Ptr {
+		vo = reflect.Indirect(vo)
 	}
 
-	if valueModelObject.Kind() == reflect.Slice {
-		for i := 0; i < valueModelObject.Len(); i++ {
-			PointToBson(valueModelObject.Index(i), s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
+	if vo.Kind() == reflect.Slice {
+		for i := 0; i < vo.Len(); i++ {
+			PointToBson(vo.Index(i), s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
 		}
 	}
 	return model, nil
