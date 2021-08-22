@@ -796,7 +796,7 @@ func FindCoordinatesIndex(modelType reflect.Type) int {
 	numField := modelType.NumField()
 	for i := 0; i < numField; i++ {
 		t := modelType.Field(i).Type
-		k := Coordinates{}
+		k := GeoJSON{}
 		if t == reflect.TypeOf(&k) || t == reflect.TypeOf(k) {
 			return i
 		}

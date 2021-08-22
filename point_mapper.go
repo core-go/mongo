@@ -116,7 +116,7 @@ func ToPoint(value reflect.Value, bsonIndex int, latitudeIndex int, longitudeInd
 		b := x.Field(bsonIndex)
 		k := b.Kind()
 		if k == reflect.Struct || (k == reflect.Ptr && b.IsNil() == false) {
-			arrLatLong := reflect.Indirect(b).FieldByName("Coordinates").Interface()
+			arrLatLong := reflect.Indirect(b).FieldByName("GeoJSON").Interface()
 			latitude := reflect.Indirect(reflect.ValueOf(arrLatLong)).Index(0).Interface()
 			longitude := reflect.Indirect(reflect.ValueOf(arrLatLong)).Index(1).Interface()
 
@@ -147,7 +147,7 @@ func (s *PointMapper) bsonToPoint(value reflect.Value, bsonIndex int, latitudeIn
 		b := x.Field(bsonIndex)
 		k := b.Kind()
 		if k == reflect.Struct || (k == reflect.Ptr && b.IsNil() == false) {
-			arrLatLong := reflect.Indirect(b).FieldByName("Coordinates").Interface()
+			arrLatLong := reflect.Indirect(b).FieldByName("GeoJSON").Interface()
 			latitude := reflect.Indirect(reflect.ValueOf(arrLatLong)).Index(0).Interface()
 			longitude := reflect.Indirect(reflect.ValueOf(arrLatLong)).Index(1).Interface()
 
@@ -206,7 +206,7 @@ func FromPointMap(m map[string]interface{}, bsonName string, latitudeJson string
 		if ok3 && ok4 {
 			var arr []float64
 			arr = append(arr, la, lo)
-			ml := Coordinates{Type: "Point", Coordinates: arr}
+			ml := GeoJSON{Type: "Point", Coordinates: arr}
 			m2 := make(map[string]interface{})
 			m2[bsonName] = ml
 			for key := range m {
@@ -247,12 +247,12 @@ func FromPoint(value reflect.Value, bsonIndex int, latitudeIndex int, longitudeI
 			arr = append(arr, la, lo)
 			coordinatesField := v.Field(bsonIndex)
 			if coordinatesField.Kind() == reflect.Ptr {
-				m := &Coordinates{Type: "Point", Coordinates: arr}
+				m := &GeoJSON{Type: "Point", Coordinates: arr}
 				coordinatesField.Set(reflect.ValueOf(m))
 			} else {
 				x := coordinatesField.FieldByName("Type")
 				x.Set(reflect.ValueOf("Point"))
-				y := coordinatesField.FieldByName("Coordinates")
+				y := coordinatesField.FieldByName("Geo")
 				y.Set(reflect.ValueOf(arr))
 			}
 		}
