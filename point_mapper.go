@@ -83,7 +83,7 @@ func (s *PointMapper) ModelToDb(ctx context.Context, model interface{}) (interfa
 		latJson := GetJsonByIndex(s.modelType, s.latitudeIndex)
 		logJson := GetJsonByIndex(s.modelType, s.longitudeIndex)
 		bs := GetBsonNameByIndex(s.modelType, s.bsonIndex)
-		m2 := PointMapToBson(m, bs, latJson, logJson)
+		m2 := FromPointMap(m, bs, latJson, logJson)
 		return m2, nil
 	}
 	vo := reflect.Indirect(reflect.ValueOf(model))
@@ -92,7 +92,7 @@ func (s *PointMapper) ModelToDb(ctx context.Context, model interface{}) (interfa
 		vo = reflect.Indirect(vo)
 	}
 	if k == reflect.Struct {
-		PointToBson(vo, s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
+		FromPoint(vo, s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
 	}
 	return model, nil
 }
@@ -104,13 +104,13 @@ func (s *PointMapper) ModelsToDb(ctx context.Context, model interface{}) (interf
 
 	if vo.Kind() == reflect.Slice {
 		for i := 0; i < vo.Len(); i++ {
-			PointToBson(vo.Index(i), s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
+			FromPoint(vo.Index(i), s.bsonIndex, s.latitudeIndex, s.longitudeIndex)
 		}
 	}
 	return model, nil
 }
 
-func BsonToPoint(value reflect.Value, bsonIndex int, latitudeIndex int, longitudeIndex int) {
+func ToPoint(value reflect.Value, bsonIndex int, latitudeIndex int, longitudeIndex int) {
 	if value.Kind() == reflect.Struct {
 		x := reflect.Indirect(value)
 		b := x.Field(bsonIndex)
@@ -197,7 +197,7 @@ func (s *PointMapper) bsonToPoint(value reflect.Value, bsonIndex int, latitudeIn
 		value.SetMapIndex(reflect.ValueOf(arrLatLongTag), reflect.Value{})
 	}
 }
-func PointMapToBson(m map[string]interface{}, bsonName string, latitudeJson string, longitudeJson string) map[string]interface{} {
+func FromPointMap(m map[string]interface{}, bsonName string, latitudeJson string, longitudeJson string) map[string]interface{} {
 	latV, ok1 := m[latitudeJson]
 	logV, ok2 := m[longitudeJson]
 	if ok1 && ok2 && len(bsonName) > 0 {
@@ -219,7 +219,7 @@ func PointMapToBson(m map[string]interface{}, bsonName string, latitudeJson stri
 	}
 	return m
 }
-func PointToBson(value reflect.Value, bsonIndex int, latitudeIndex int, longitudeIndex int) {
+func FromPoint(value reflect.Value, bsonIndex int, latitudeIndex int, longitudeIndex int) {
 	v := reflect.Indirect(value)
 	latitudeField := v.Field(latitudeIndex)
 	latNil := false
