@@ -37,7 +37,7 @@ func NewMapper(modelType reflect.Type, options ...string) *PointMapper {
 	if len(bsonName) > 0 {
 		bsonIndex = FindFieldIndex(modelType, bsonName)
 	} else {
-		bsonIndex = FindCoordinatesIndex(modelType)
+		bsonIndex = FindGeoIndex(modelType)
 	}
 
 	return &PointMapper{
@@ -147,7 +147,7 @@ func (s *PointMapper) bsonToPoint(value reflect.Value, bsonIndex int, latitudeIn
 		b := x.Field(bsonIndex)
 		k := b.Kind()
 		if k == reflect.Struct || (k == reflect.Ptr && b.IsNil() == false) {
-			arrLatLong := reflect.Indirect(b).FieldByName("GeoJSON").Interface()
+			arrLatLong := reflect.Indirect(b).FieldByName("Coordinates").Interface()
 			latitude := reflect.Indirect(reflect.ValueOf(arrLatLong)).Index(0).Interface()
 			longitude := reflect.Indirect(reflect.ValueOf(arrLatLong)).Index(1).Interface()
 
