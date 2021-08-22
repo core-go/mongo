@@ -74,24 +74,13 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 					}
 					fields[columnName] = 1
 				}
-			} else if len(v.Excluding) > 0 {
-				for key, val := range v.Excluding {
-					idx, fieldName, columnName := getFieldByJson(resultModelType, key)
-					if len(columnName) == 0 {
-						if idx >= 0 {
-							columnName = fieldName
-						} else {
-							columnName = key
-						}
-					}
-					if len(val) > 0 {
-						actionDateQuery := bson.M{}
-						actionDateQuery["$nin"] = val
-						query[columnName] = actionDateQuery
-					}
-				}
-			} else if len(v.Keyword) > 0 {
-				keyword = strings.TrimSpace(v.Keyword)
+			}
+			if v.Excluding != nil && len(v.Excluding) > 0 {
+				actionDateQuery := bson.M{}
+				actionDateQuery["$nin"] = v.Excluding
+			}
+			if len(v.Q) > 0 {
+				keyword = strings.TrimSpace(v.Q)
 			}
 			continue
 		} else if ps || ks == "string" {
@@ -148,29 +137,29 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 		} else if rangeDate, ok := x.(*search.DateRange); ok && rangeDate != nil {
 			columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
 			actionDateQuery := bson.M{}
-			if rangeDate.StartDate == nil && rangeDate.EndDate == nil {
+			if rangeDate.Min == nil && rangeDate.Max == nil {
 				continue
-			} else if rangeDate.StartDate == nil {
-				actionDateQuery["$lte"] = rangeDate.EndDate
-			} else if rangeDate.EndDate == nil {
-				actionDateQuery["$gte"] = rangeDate.StartDate
+			} else if rangeDate.Max != nil {
+				actionDateQuery["$lte"] = rangeDate.Max
+			} else if rangeDate.Min != nil {
+				actionDateQuery["$gte"] = rangeDate.Min
 			} else {
-				actionDateQuery["$lte"] = rangeDate.EndDate
-				actionDateQuery["$gte"] = rangeDate.StartDate
+				actionDateQuery["$lte"] = rangeDate.Max
+				actionDateQuery["$gte"] = rangeDate.Min
 			}
 			query[columnName] = actionDateQuery
 		} else if rangeDate, ok := x.(search.DateRange); ok {
 			columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
 			actionDateQuery := bson.M{}
-			if rangeDate.StartDate == nil && rangeDate.EndDate == nil {
+			if rangeDate.Min == nil && rangeDate.Max == nil {
 				continue
-			} else if rangeDate.StartDate == nil {
-				actionDateQuery["$lte"] = rangeDate.EndDate
-			} else if rangeDate.EndDate == nil {
-				actionDateQuery["$gte"] = rangeDate.StartDate
+			} else if rangeDate.Max != nil {
+				actionDateQuery["$lte"] = rangeDate.Max
+			} else if rangeDate.Min != nil {
+				actionDateQuery["$gte"] = rangeDate.Min
 			} else {
-				actionDateQuery["$lte"] = rangeDate.EndDate
-				actionDateQuery["$gte"] = rangeDate.StartDate
+				actionDateQuery["$lte"] = rangeDate.Max
+				actionDateQuery["$gte"] = rangeDate.Min
 			}
 			query[columnName] = actionDateQuery
 		} else if numberRange, ok := x.(*search.NumberRange); ok && numberRange != nil {
@@ -241,7 +230,6 @@ func getFieldByJson(modelType reflect.Type, jsonName string) (int, string, strin
 	}
 	return -1, jsonName, jsonName
 }
-
 func getBsonName(modelType reflect.Type, fieldName string) string {
 	field, found := modelType.FieldByName(fieldName)
 	if !found {

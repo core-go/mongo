@@ -9,25 +9,15 @@ import (
 	"strings"
 )
 
-func BuildSearchResult(ctx context.Context, collection *mongo.Collection, results interface{}, query bson.M, fields bson.M, sort bson.M, pageIndex int64, pageSize int64, initPageSize int64, opts ...func(context.Context, interface{}) (interface{}, error)) (int64, error) {
+func BuildSearchResult(ctx context.Context, collection *mongo.Collection, results interface{}, query bson.M, fields bson.M, sort bson.M, limit int64, skip int64, opts ...func(context.Context, interface{}) (interface{}, error)) (int64, error) {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(opts) > 0 {
 		mp = opts[0]
 	}
 	optionsFind := options.Find()
 	optionsFind.Projection = fields
-	if initPageSize > 0 {
-		if pageIndex == 1 {
-			optionsFind.SetSkip(0)
-			optionsFind.SetLimit(initPageSize)
-		} else {
-			optionsFind.SetSkip(pageSize*(pageIndex-2) + initPageSize)
-			optionsFind.SetLimit(pageSize)
-		}
-	} else {
-		optionsFind.SetSkip(pageSize * (pageIndex - 1))
-		optionsFind.SetLimit(pageSize)
-	}
+	optionsFind.SetSkip(skip)
+	optionsFind.SetLimit(limit)
 	if sort != nil {
 		optionsFind.SetSort(sort)
 	}

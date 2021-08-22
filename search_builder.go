@@ -27,18 +27,17 @@ func NewSearchBuilderWithSort(db *mongo.Database, collectionName string, buildQu
 func NewSearchBuilder(db *mongo.Database, collectionName string, buildQuery func(interface{}) (bson.M, bson.M), getSort func(interface{}) string, options ...func(context.Context, interface{}) (interface{}, error)) *SearchBuilder {
 	return NewSearchBuilderWithSort(db, collectionName, buildQuery, getSort, BuildSort, options...)
 }
-func (b *SearchBuilder) Search(ctx context.Context, m interface{}, results interface{}, pageIndex int64, pageSize int64, options ...int64) (int64, error) {
+func (b *SearchBuilder) Search(ctx context.Context, m interface{}, results interface{}, limit int64, options ...int64) (int64, string, error) {
 	query, fields := b.BuildQuery(m)
 
 	var sort = bson.M{}
 	s := b.GetSort(m)
 	modelType := reflect.TypeOf(results).Elem().Elem()
 	sort = b.BuildSort(s, modelType)
-	var firstPageSize int64
+	var skip int64 = 0
 	if len(options) > 0 && options[0] > 0 {
-		firstPageSize = options[0]
-	} else {
-		firstPageSize = 0
+		skip = options[0]
 	}
-	return BuildSearchResult(ctx, b.Collection, results, query, fields, sort, pageIndex, pageSize, firstPageSize, b.Map)
+	count, err := BuildSearchResult(ctx, b.Collection, results, query, fields, sort, limit, skip, b.Map)
+	return count, "", err
 }
