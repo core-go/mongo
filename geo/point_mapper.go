@@ -1,4 +1,4 @@
-package mongo
+package geo
 
 import (
 	"context"
@@ -16,6 +16,51 @@ type PointMapper struct {
 	bsonName       string
 }
 
+//For Get By Id
+func findFieldIndex(modelType reflect.Type, fieldName string) int {
+	numField := modelType.NumField()
+	for i := 0; i < numField; i++ {
+		field := modelType.Field(i)
+		if field.Name == fieldName {
+			return i
+		}
+	}
+	return -1
+}
+func getBsonName(modelType reflect.Type, fieldName string) string {
+	field, found := modelType.FieldByName(fieldName)
+	if !found {
+		return fieldName
+	}
+	if tag, ok := field.Tag.Lookup("bson"); ok {
+		return strings.Split(tag, ",")[0]
+	}
+	return fieldName
+}
+func getJsonByIndex(modelType reflect.Type, fieldIndex int) string {
+	if tag, ok := modelType.Field(fieldIndex).Tag.Lookup("json"); ok {
+		return strings.Split(tag, ",")[0]
+	}
+	return ""
+}
+func getBsonNameByIndex(modelType reflect.Type, fieldIndex int) string {
+	if tag, ok := modelType.Field(fieldIndex).Tag.Lookup("bson"); ok {
+		return strings.Split(tag, ",")[0]
+	}
+	return ""
+}
+func FindGeoIndex(modelType reflect.Type) int {
+	numField := modelType.NumField()
+	k := JSON{}
+	for i := 0; i < numField; i++ {
+		t := modelType.Field(i).Type
+		if t == reflect.TypeOf(&k) || t == reflect.TypeOf(k) {
+			return i
+		}
+	}
+	return -1
+}
+
 func NewMapper(modelType reflect.Type, options ...string) *PointMapper {
 	var bsonName, latitudeName, longitudeName string
 	if len(options) >= 1 && len(options[0]) > 0 {
@@ -31,11 +76,11 @@ func NewMapper(modelType reflect.Type, options ...string) *PointMapper {
 	} else {
 		longitudeName = "Longitude"
 	}
-	latitudeIndex := FindFieldIndex(modelType, latitudeName)
-	longitudeIndex := FindFieldIndex(modelType, longitudeName)
+	latitudeIndex := findFieldIndex(modelType, latitudeName)
+	longitudeIndex := findFieldIndex(modelType, longitudeName)
 	var bsonIndex int
 	if len(bsonName) > 0 {
-		bsonIndex = FindFieldIndex(modelType, bsonName)
+		bsonIndex = findFieldIndex(modelType, bsonName)
 	} else {
 		bsonIndex = FindGeoIndex(modelType)
 	}
@@ -80,9 +125,9 @@ func (s *PointMapper) DbToModels(ctx context.Context, model interface{}) (interf
 func (s *PointMapper) ModelToDb(ctx context.Context, model interface{}) (interface{}, error) {
 	m, ok := model.(map[string]interface{})
 	if ok {
-		latJson := GetJsonByIndex(s.modelType, s.latitudeIndex)
-		logJson := GetJsonByIndex(s.modelType, s.longitudeIndex)
-		bs := GetBsonNameByIndex(s.modelType, s.bsonIndex)
+		latJson := getJsonByIndex(s.modelType, s.latitudeIndex)
+		logJson := getJsonByIndex(s.modelType, s.longitudeIndex)
+		bs := getBsonNameByIndex(s.modelType, s.bsonIndex)
 		m2 := FromPointMap(m, bs, latJson, logJson)
 		return m2, nil
 	}
@@ -174,15 +219,15 @@ func (s *PointMapper) bsonToPoint(value reflect.Value, bsonIndex int, latitudeIn
 
 	if value.Kind() == reflect.Map {
 		var arrLatLongTag, latitudeTag, longitudeTag string
-		if arrLatLongTag = GetBsonName(s.modelType, s.bsonName); arrLatLongTag == "" || arrLatLongTag == "-" {
+		if arrLatLongTag = getBsonName(s.modelType, s.bsonName); arrLatLongTag == "" || arrLatLongTag == "-" {
 			arrLatLongTag = getJsonName(s.modelType, s.bsonName)
 		}
 
-		if latitudeTag = GetBsonName(s.modelType, s.latitudeName); latitudeTag == "" || latitudeTag == "-" {
+		if latitudeTag = getBsonName(s.modelType, s.latitudeName); latitudeTag == "" || latitudeTag == "-" {
 			latitudeTag = getJsonName(s.modelType, s.latitudeName)
 		}
 
-		if longitudeTag = GetBsonName(s.modelType, s.longitudeName); longitudeTag == "" || longitudeTag == "-" {
+		if longitudeTag = getBsonName(s.modelType, s.longitudeName); longitudeTag == "" || longitudeTag == "-" {
 			longitudeTag = getJsonName(s.modelType, s.longitudeName)
 		}
 
@@ -206,7 +251,7 @@ func FromPointMap(m map[string]interface{}, bsonName string, latitudeJson string
 		if ok3 && ok4 {
 			var arr []float64
 			arr = append(arr, la, lo)
-			ml := GeoJSON{Type: "Point", Coordinates: arr}
+			ml := JSON{Type: "Point", Coordinates: arr}
 			m2 := make(map[string]interface{})
 			m2[bsonName] = ml
 			for key := range m {
@@ -247,7 +292,7 @@ func FromPoint(value reflect.Value, bsonIndex int, latitudeIndex int, longitudeI
 			arr = append(arr, la, lo)
 			coordinatesField := v.Field(bsonIndex)
 			if coordinatesField.Kind() == reflect.Ptr {
-				m := &GeoJSON{Type: "Point", Coordinates: arr}
+				m := &JSON{Type: "Point", Coordinates: arr}
 				coordinatesField.Set(reflect.ValueOf(m))
 			} else {
 				x := coordinatesField.FieldByName("Type")
