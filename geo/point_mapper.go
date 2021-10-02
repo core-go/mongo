@@ -208,7 +208,7 @@ func (s *PointMapper) bsonToPoint(value reflect.Value, bsonIndex int, latitudeIn
 			lonField := x.Field(longitudeIndex)
 			if lonField.Kind() == reflect.Ptr {
 				var f *float64
-				var f2 = latitude.(float64)
+				var f2 = longitude.(float64)
 				f = &f2
 				lonField.Set(reflect.ValueOf(f))
 			} else {
