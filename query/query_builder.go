@@ -17,14 +17,14 @@ type Builder struct {
 func NewBuilder(resultModelType reflect.Type) *Builder {
 	return &Builder{ModelType: resultModelType}
 }
-func (b *Builder) BuildQuery(sm interface{}) (bson.M, bson.M) {
-	return Build(sm, b.ModelType)
+func (b *Builder) BuildQuery(filter interface{}) (bson.M, bson.M) {
+	return Build(filter, b.ModelType)
 }
 func Build(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 	var query = bson.M{}
 	var fields = bson.M{}
 
-	if _, ok := sm.(*search.SearchModel); ok {
+	if _, ok := sm.(*search.Filter); ok {
 		return query, fields
 	}
 
@@ -63,7 +63,7 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 			psv = s0
 		}
 		ks := kind.String()
-		if v, ok := x.(*search.SearchModel); ok {
+		if v, ok := x.(*search.Filter); ok {
 			if len(v.Fields) > 0 {
 				for _, key := range v.Fields {
 					_, _, columnName := getFieldByJson(resultModelType, key)
@@ -204,7 +204,7 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 			actionDateQuery["$in"] = x
 			query[columnName] = actionDateQuery
 		} else {
-			if _, ok := x.(*search.SearchModel); ks == "bool" || (strings.Contains(ks, "int") && x != 0) || (strings.Contains(ks, "float") && x != 0) || (!ok && ks == "ptr" &&
+			if _, ok := x.(*search.Filter); ks == "bool" || (strings.Contains(ks, "int") && x != 0) || (strings.Contains(ks, "float") && x != 0) || (!ok && ks == "ptr" &&
 				value.Field(i).Pointer() != 0) {
 				columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
 				if len(columnName) > 0 {
