@@ -12,12 +12,12 @@ func NewMongoSearchWriterWithVersionAndSort(db *mongo.Database, collectionName s
 		mapper = options[0]
 	}
 	if mapper != nil {
-		writer := NewWriterWithVersion(db, collectionName, modelType, idObjectId, version, mapper)
+		writer := NewMongoWriterWithVersion(db, collectionName, modelType, idObjectId, version, mapper)
 		builder := NewSearchBuilderWithSort(db, collectionName, buildQuery, getSort, buildSort, mapper.DbToModel)
 		searcher := NewSearcher(builder.Search)
 		return searcher, writer
 	} else {
-		writer := NewWriterWithVersion(db, collectionName, modelType, idObjectId, version)
+		writer := NewMongoWriterWithVersion(db, collectionName, modelType, idObjectId, version)
 		builder := NewSearchBuilderWithSort(db, collectionName, buildQuery, getSort, buildSort)
 		searcher := NewSearcher(builder.Search)
 		return searcher, writer

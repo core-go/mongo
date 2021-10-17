@@ -54,6 +54,8 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 				ps = true
 				psv = *s0
 			}
+			field = field.Elem()
+			kind = field.Kind()
 		}
 		s0, ok0 := x.(string)
 		if ok0 {

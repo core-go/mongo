@@ -31,11 +31,7 @@ func NewMongoLoader(db *mongo.Database, collectionName string, modelType reflect
 }
 
 func NewLoader(db *mongo.Database, collectionName string, modelType reflect.Type, options ...func(context.Context, interface{}) (interface{}, error)) *Loader {
-	var mp func(context.Context, interface{}) (interface{}, error)
-	if len(options) > 0 {
-		mp = options[0]
-	}
-	return NewMongoLoader(db, collectionName, modelType, false, mp)
+	return NewMongoLoader(db, collectionName, modelType, false, options...)
 }
 
 func (m *Loader) Id() string {
