@@ -21,7 +21,6 @@ func (b *Builder) BuildQuery(filter interface{}) (bson.M, bson.M) {
 }
 func Build(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 	var query = bson.M{}
-	// var queryQ = bson.M{}
 	queryQ := make([]bson.M, 0)
 	hasQ := false
 	var fields = bson.M{}
