@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func BuildSearchResult(ctx context.Context, collection *mongo.Collection, results interface{}, query bson.M, fields bson.M, sort bson.M, limit int64, skip int64, opts ...func(context.Context, interface{}) (interface{}, error)) (int64, error) {
+func BuildSearchResult(ctx context.Context, collection *mongo.Collection, results interface{}, query bson.D, fields bson.M, sort bson.D, limit int64, skip int64, opts ...func(context.Context, interface{}) (interface{}, error)) (int64, error) {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(opts) > 0 {
 		mp = opts[0]
@@ -43,23 +43,26 @@ func BuildSearchResult(ctx context.Context, collection *mongo.Collection, result
 	return count, er3
 }
 
-func BuildSort(s string, modelType reflect.Type) bson.M {
-	var sort = bson.M{}
+func BuildSort(s string, modelType reflect.Type) bson.D {
+	var sort = bson.D{}
 	if len(s) == 0 {
 		return sort
 	}
 	sorts := strings.Split(s, ",")
 	for i := 0; i < len(sorts); i++ {
 		sortField := strings.TrimSpace(sorts[i])
-		fieldName := sortField
-		c := sortField[0:1]
-		if c == "-" || c == "+" {
-			fieldName = sortField[1:]
+		if len(sortField) > 0 {
+			fieldName := sortField
+			c := sortField[0:1]
+			if c == "-" || c == "+" {
+				fieldName = sortField[1:]
+			}
+			columnName := GetBsonNameForSort(modelType, fieldName)
+			if len(columnName) > 0 {
+				sortType := GetSortType(c)
+				sort = append(sort, bson.E{Key: columnName, Value: sortType})
+			}
 		}
-
-		columnName := GetBsonNameForSort(modelType, fieldName)
-		sortType := GetSortType(c)
-		sort[columnName] = sortType
 	}
 	return sort
 }

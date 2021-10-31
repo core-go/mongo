@@ -6,7 +6,7 @@ import (
 	"reflect"
 )
 
-func NewMongoSearchWriterWithVersionAndSort(db *mongo.Database, collectionName string, modelType reflect.Type, idObjectId bool, version string, buildQuery func(sm interface{}) (bson.M, bson.M), getSort func(interface{}) string, buildSort func(string, reflect.Type) bson.M, options ...Mapper) (*Searcher, *Writer) {
+func NewMongoSearchWriterWithVersionAndSort(db *mongo.Database, collectionName string, modelType reflect.Type, idObjectId bool, version string, buildQuery func(sm interface{}) (bson.D, bson.M), getSort func(interface{}) string, buildSort func(string, reflect.Type) bson.D, options ...Mapper) (*Searcher, *Writer) {
 	var mapper Mapper
 	if len(options) > 0 && options[0] != nil {
 		mapper = options[0]
@@ -24,15 +24,15 @@ func NewMongoSearchWriterWithVersionAndSort(db *mongo.Database, collectionName s
 	}
 }
 
-func NewSearchWriterWithVersionAndSort(db *mongo.Database, collectionName string, modelType reflect.Type, version string, buildQuery func(sm interface{}) (bson.M, bson.M), getSort func(interface{}) string, buildSort func(string, reflect.Type) bson.M, options ...Mapper) (*Searcher, *Writer) {
+func NewSearchWriterWithVersionAndSort(db *mongo.Database, collectionName string, modelType reflect.Type, version string, buildQuery func(sm interface{}) (bson.D, bson.M), getSort func(interface{}) string, buildSort func(string, reflect.Type) bson.D, options ...Mapper) (*Searcher, *Writer) {
 	return NewMongoSearchWriterWithVersionAndSort(db, collectionName, modelType, false, version, buildQuery, getSort, buildSort, options...)
 }
-func NewSearchWriterWithVersion(db *mongo.Database, collectionName string, modelType reflect.Type, version string, buildQuery func(sm interface{}) (bson.M, bson.M), getSort func(interface{}) string, options ...Mapper) (*Searcher, *Writer) {
+func NewSearchWriterWithVersion(db *mongo.Database, collectionName string, modelType reflect.Type, version string, buildQuery func(sm interface{}) (bson.D, bson.M), getSort func(interface{}) string, options ...Mapper) (*Searcher, *Writer) {
 	return NewMongoSearchWriterWithVersionAndSort(db, collectionName, modelType, false, version, buildQuery, getSort, BuildSort, options...)
 }
-func NewSearchWriterWithSort(db *mongo.Database, collectionName string, modelType reflect.Type, buildQuery func(sm interface{}) (bson.M, bson.M), getSort func(interface{}) string, buildSort func(string, reflect.Type) bson.M, options ...Mapper) (*Searcher, *Writer) {
+func NewSearchWriterWithSort(db *mongo.Database, collectionName string, modelType reflect.Type, buildQuery func(sm interface{}) (bson.D, bson.M), getSort func(interface{}) string, buildSort func(string, reflect.Type) bson.D, options ...Mapper) (*Searcher, *Writer) {
 	return NewMongoSearchWriterWithVersionAndSort(db, collectionName, modelType, false, "", buildQuery, getSort, buildSort, options...)
 }
-func NewSearchWriter(db *mongo.Database, collectionName string, modelType reflect.Type, buildQuery func(sm interface{}) (bson.M, bson.M), getSort func(interface{}) string, options ...Mapper) (*Searcher, *Writer) {
+func NewSearchWriter(db *mongo.Database, collectionName string, modelType reflect.Type, buildQuery func(sm interface{}) (bson.D, bson.M), getSort func(interface{}) string, options ...Mapper) (*Searcher, *Writer) {
 	return NewMongoSearchWriterWithVersionAndSort(db, collectionName, modelType, false, "", buildQuery, getSort, BuildSort, options...)
 }
