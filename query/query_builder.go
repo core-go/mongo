@@ -5,7 +5,6 @@ import (
 	"github.com/core-go/search"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"log"
 	"reflect"
 	"strings"
 )
@@ -31,11 +30,6 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 	value := reflect.Indirect(reflect.ValueOf(sm))
 	numField := value.NumField()
 	var keyword string
-	keywordFormat := map[string]string{
-		"prefix":  "^%v",
-		"contain": "\\w*%v\\w*",
-		"equal":   "%v",
-	}
 	for i := 0; i < numField; i++ {
 		field := value.Field(i)
 		kind := field.Kind()
@@ -87,56 +81,134 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 			}
 			continue
 		} else if ps || ks == "string" {
-			var keywordQuery primitive.Regex
 			columnName := getBsonName(resultModelType, tf.Name)
-			var searchValue string
 			var key string
 			var ok bool
 			if len(psv) > 0 {
 				const defaultKey = "contain"
 				key, ok = tf.Tag.Lookup("match")
-				if ok {
-					if format, exist := keywordFormat[key]; exist {
-						searchValue = fmt.Sprintf(format, psv)
-					} else {
-						log.Panicf("match not support \"%v\" format\n", key)
-					}
-				} else if format, exist := keywordFormat[defaultKey]; exist {
-					searchValue = fmt.Sprintf(format, psv)
+				if !ok {
+					key = "contains"
+				}
+				if key == "prefix" {
+					query[columnName] = primitive.Regex{Pattern: fmt.Sprintf("^%v", psv)}
+				} else if key == "equal" {
+					query[columnName] = psv
+				} else  {
+					query[columnName] = primitive.Regex{Pattern: fmt.Sprintf("\\w*%v\\w*", psv)}
 				}
 			} else if len(keyword) > 0 {
-				key, ok = tf.Tag.Lookup("keyword")
-				if ok {
-					if format, exist := keywordFormat[key]; exist {
-						searchValue = fmt.Sprintf(format, keyword)
+				qMatch, isQ := tf.Tag.Lookup("q")
+				if isQ {
+					if qMatch == "prefix" {
+						query[columnName] = primitive.Regex{Pattern: fmt.Sprintf("^%v", keyword)}
+					} else if qMatch == "equal" {
+						query[columnName] = keyword
 					} else {
-						log.Panicf("keyword not support \"%v\" format\n", key)
+						query[columnName] = primitive.Regex{Pattern: fmt.Sprintf("\\w*%v\\w*", keyword)}
 					}
 				}
-			}
-			if len(searchValue) > 0 {
-				if key == "equal" {
-					query[columnName] = searchValue
-				} else {
-					keywordQuery = primitive.Regex{Pattern: searchValue}
-					query[columnName] = keywordQuery
-				}
-
 			}
 		} else if rangeTime, ok := x.(*search.TimeRange); ok && rangeTime != nil {
 			columnName := getBsonName(resultModelType, tf.Name)
 			actionDateQuery := bson.M{}
-			actionDateQuery["$gte"] = rangeTime.StartTime
-			query[columnName] = actionDateQuery
-			actionDateQuery["$lt"] = rangeTime.EndTime
-			query[columnName] = actionDateQuery
+			hc := false
+			if rangeTime.Min != nil {
+				actionDateQuery["$gte"] = rangeTime.Min
+				hc = true
+			}
+			if rangeTime.Max != nil {
+				actionDateQuery["$lte"] = rangeTime.Max
+				hc = true
+			} else if rangeTime.Top != nil {
+				actionDateQuery["$lt"] = rangeTime.Top
+				hc = true
+			}
+			if hc {
+				query[columnName] = actionDateQuery
+			}
 		} else if rangeTime, ok := x.(search.TimeRange); ok {
 			columnName := getBsonName(resultModelType, tf.Name)
 			actionDateQuery := bson.M{}
-			actionDateQuery["$gte"] = rangeTime.StartTime
-			query[columnName] = actionDateQuery
-			actionDateQuery["$lt"] = rangeTime.EndTime
-			query[columnName] = actionDateQuery
+			hc := false
+			if rangeTime.Min != nil {
+				actionDateQuery["$gte"] = rangeTime.Min
+				hc = true
+			}
+			if rangeTime.Max != nil {
+				actionDateQuery["$lte"] = rangeTime.Max
+				hc = true
+			} else if rangeTime.Top != nil {
+				actionDateQuery["$lt"] = rangeTime.Top
+				hc = true
+			}
+			if hc {
+				query[columnName] = actionDateQuery
+			}
+		} else if numberRange, ok := x.(*search.NumberRange); ok && numberRange != nil {
+			columnName := getBsonName(resultModelType, tf.Name)
+			amountQuery := bson.M{}
+			if numberRange.Min != nil {
+				amountQuery["$gte"] = *numberRange.Min
+			} else if numberRange.Bottom != nil {
+				amountQuery["$gt"] = *numberRange.Bottom
+			}
+			if numberRange.Max != nil {
+				amountQuery["$lte"] = *numberRange.Max
+			} else if numberRange.Top != nil {
+				amountQuery["$lt"] = *numberRange.Top
+			}
+			if len(amountQuery) > 0 {
+				query[columnName] = amountQuery
+			}
+		} else if numberRange, ok := x.(search.NumberRange); ok {
+			columnName := getBsonName(resultModelType, tf.Name)
+			amountQuery := bson.M{}
+			if numberRange.Min != nil {
+				amountQuery["$gte"] = *numberRange.Min
+			} else if numberRange.Bottom != nil {
+				amountQuery["$gt"] = *numberRange.Bottom
+			}
+			if numberRange.Max != nil {
+				amountQuery["$lte"] = *numberRange.Max
+			} else if numberRange.Top != nil {
+				amountQuery["$lt"] = *numberRange.Top
+			}
+			if len(amountQuery) > 0 {
+				query[columnName] = amountQuery
+			}
+		} else if numberRange, ok := x.(*search.Int64Range); ok && numberRange != nil {
+			columnName := getBsonName(resultModelType, tf.Name)
+			amountQuery := bson.M{}
+			if numberRange.Min != nil {
+				amountQuery["$gte"] = *numberRange.Min
+			} else if numberRange.Bottom != nil {
+				amountQuery["$gt"] = *numberRange.Bottom
+			}
+			if numberRange.Max != nil {
+				amountQuery["$lte"] = *numberRange.Max
+			} else if numberRange.Top != nil {
+				amountQuery["$lt"] = *numberRange.Top
+			}
+			if len(amountQuery) > 0 {
+				query[columnName] = amountQuery
+			}
+		} else if numberRange, ok := x.(search.Int64Range); ok {
+			columnName := getBsonName(resultModelType, tf.Name)
+			amountQuery := bson.M{}
+			if numberRange.Min != nil {
+				amountQuery["$gte"] = *numberRange.Min
+			} else if numberRange.Bottom != nil {
+				amountQuery["$gt"] = *numberRange.Bottom
+			}
+			if numberRange.Max != nil {
+				amountQuery["$lte"] = *numberRange.Max
+			} else if numberRange.Top != nil {
+				amountQuery["$lt"] = *numberRange.Top
+			}
+			if len(amountQuery) > 0 {
+				query[columnName] = amountQuery
+			}
 		} else if rangeDate, ok := x.(*search.DateRange); ok && rangeDate != nil {
 			columnName := getBsonName(resultModelType, tf.Name)
 			actionDateQuery := bson.M{}
@@ -165,42 +237,6 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 				actionDateQuery["$gte"] = rangeDate.Min
 			}
 			query[columnName] = actionDateQuery
-		} else if numberRange, ok := x.(*search.NumberRange); ok && numberRange != nil {
-			columnName := getBsonName(resultModelType, tf.Name)
-			amountQuery := bson.M{}
-
-			if numberRange.Min != nil {
-				amountQuery["$gte"] = *numberRange.Min
-			} else if numberRange.Lower != nil {
-				amountQuery["$gt"] = *numberRange.Lower
-			}
-			if numberRange.Max != nil {
-				amountQuery["$lte"] = *numberRange.Max
-			} else if numberRange.Upper != nil {
-				amountQuery["$lt"] = *numberRange.Upper
-			}
-
-			if len(amountQuery) > 0 {
-				query[columnName] = amountQuery
-			}
-		} else if numberRange, ok := x.(search.NumberRange); ok {
-			columnName := getBsonName(resultModelType, tf.Name)
-			amountQuery := bson.M{}
-
-			if numberRange.Min != nil {
-				amountQuery["$gte"] = *numberRange.Min
-			} else if numberRange.Lower != nil {
-				amountQuery["$gt"] = *numberRange.Lower
-			}
-			if numberRange.Max != nil {
-				amountQuery["$lte"] = *numberRange.Max
-			} else if numberRange.Upper != nil {
-				amountQuery["$lt"] = *numberRange.Upper
-			}
-
-			if len(amountQuery) > 0 {
-				query[columnName] = amountQuery
-			}
 		} else if ks == "slice" {
 			if field.Len() > 0 {
 				actionDateQuery := bson.M{}
