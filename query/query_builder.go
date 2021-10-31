@@ -65,6 +65,7 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 			psv = s0
 		}
 		ks := kind.String()
+		tf := value.Type().Field(i)
 		if v, ok := x.(*search.Filter); ok {
 			if len(v.Fields) > 0 {
 				for _, key := range v.Fields {
@@ -87,13 +88,13 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 			continue
 		} else if ps || ks == "string" {
 			var keywordQuery primitive.Regex
-			columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
+			columnName := getBsonName(resultModelType, tf.Name)
 			var searchValue string
 			var key string
 			var ok bool
 			if len(psv) > 0 {
 				const defaultKey = "contain"
-				key, ok = value.Type().Field(i).Tag.Lookup("match")
+				key, ok = tf.Tag.Lookup("match")
 				if ok {
 					if format, exist := keywordFormat[key]; exist {
 						searchValue = fmt.Sprintf(format, psv)
@@ -104,7 +105,7 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 					searchValue = fmt.Sprintf(format, psv)
 				}
 			} else if len(keyword) > 0 {
-				key, ok = value.Type().Field(i).Tag.Lookup("keyword")
+				key, ok = tf.Tag.Lookup("keyword")
 				if ok {
 					if format, exist := keywordFormat[key]; exist {
 						searchValue = fmt.Sprintf(format, keyword)
@@ -123,21 +124,21 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 
 			}
 		} else if rangeTime, ok := x.(*search.TimeRange); ok && rangeTime != nil {
-			columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
+			columnName := getBsonName(resultModelType, tf.Name)
 			actionDateQuery := bson.M{}
 			actionDateQuery["$gte"] = rangeTime.StartTime
 			query[columnName] = actionDateQuery
 			actionDateQuery["$lt"] = rangeTime.EndTime
 			query[columnName] = actionDateQuery
 		} else if rangeTime, ok := x.(search.TimeRange); ok {
-			columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
+			columnName := getBsonName(resultModelType, tf.Name)
 			actionDateQuery := bson.M{}
 			actionDateQuery["$gte"] = rangeTime.StartTime
 			query[columnName] = actionDateQuery
 			actionDateQuery["$lt"] = rangeTime.EndTime
 			query[columnName] = actionDateQuery
 		} else if rangeDate, ok := x.(*search.DateRange); ok && rangeDate != nil {
-			columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
+			columnName := getBsonName(resultModelType, tf.Name)
 			actionDateQuery := bson.M{}
 			if rangeDate.Min == nil && rangeDate.Max == nil {
 				continue
@@ -151,7 +152,7 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 			}
 			query[columnName] = actionDateQuery
 		} else if rangeDate, ok := x.(search.DateRange); ok {
-			columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
+			columnName := getBsonName(resultModelType, tf.Name)
 			actionDateQuery := bson.M{}
 			if rangeDate.Min == nil && rangeDate.Max == nil {
 				continue
@@ -165,7 +166,7 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 			}
 			query[columnName] = actionDateQuery
 		} else if numberRange, ok := x.(*search.NumberRange); ok && numberRange != nil {
-			columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
+			columnName := getBsonName(resultModelType, tf.Name)
 			amountQuery := bson.M{}
 
 			if numberRange.Min != nil {
@@ -183,7 +184,7 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 				query[columnName] = amountQuery
 			}
 		} else if numberRange, ok := x.(search.NumberRange); ok {
-			columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
+			columnName := getBsonName(resultModelType, tf.Name)
 			amountQuery := bson.M{}
 
 			if numberRange.Min != nil {
@@ -201,14 +202,16 @@ func Build(sm interface{}, resultModelType reflect.Type) (bson.M, bson.M) {
 				query[columnName] = amountQuery
 			}
 		} else if ks == "slice" {
-			actionDateQuery := bson.M{}
-			columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
-			actionDateQuery["$in"] = x
-			query[columnName] = actionDateQuery
+			if field.Len() > 0 {
+				actionDateQuery := bson.M{}
+				columnName := getBsonName(resultModelType, tf.Name)
+				actionDateQuery["$in"] = x
+				query[columnName] = actionDateQuery
+			}
 		} else {
 			if _, ok := x.(*search.Filter); ks == "bool" || (strings.Contains(ks, "int") && x != 0) || (strings.Contains(ks, "float") && x != 0) || (!ok && ks == "ptr" &&
 				value.Field(i).Pointer() != 0) {
-				columnName := getBsonName(resultModelType, value.Type().Field(i).Name)
+				columnName := getBsonName(resultModelType, tf.Name)
 				if len(columnName) > 0 {
 					query[columnName] = x
 				}
