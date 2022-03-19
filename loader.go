@@ -33,7 +33,22 @@ func NewMongoLoader(db *mongo.Database, collectionName string, modelType reflect
 func NewLoader(db *mongo.Database, collectionName string, modelType reflect.Type, options ...func(context.Context, interface{}) (interface{}, error)) *Loader {
 	return NewMongoLoader(db, collectionName, modelType, false, options...)
 }
-
+func UseMongoLoad(db *mongo.Database, collectionName string, modelType reflect.Type, idObjectId bool, options ...func(context.Context, interface{}) (interface{}, error)) func(context.Context, interface{}, interface{}) (bool, error) {
+	l := NewMongoLoader(db, collectionName, modelType, idObjectId, options...)
+	return l.LoadAndDecode
+}
+func Load(db *mongo.Database, collectionName string, modelType reflect.Type, options ...func(context.Context, interface{}) (interface{}, error)) func(context.Context, interface{}, interface{}) (bool, error) {
+	return UseMongoLoad(db, collectionName, modelType, false, options...)
+}
+func UseLoad(db *mongo.Database, collectionName string, modelType reflect.Type, options ...func(context.Context, interface{}) (interface{}, error)) func(context.Context, interface{}, interface{}) (bool, error) {
+	return UseMongoLoad(db, collectionName, modelType, false, options...)
+}
+func UseGet(db *mongo.Database, collectionName string, modelType reflect.Type, options ...func(context.Context, interface{}) (interface{}, error)) func(context.Context, interface{}, interface{}) (bool, error) {
+	return UseMongoLoad(db, collectionName, modelType, false, options...)
+}
+func Get(db *mongo.Database, collectionName string, modelType reflect.Type, options ...func(context.Context, interface{}) (interface{}, error)) func(context.Context, interface{}, interface{}) (bool, error) {
+	return UseMongoLoad(db, collectionName, modelType, false, options...)
+}
 func (m *Loader) Id() string {
 	return m.jsonIdName
 }
