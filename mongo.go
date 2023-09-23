@@ -25,53 +25,6 @@ func CreateUniqueIndex(collection *mongo.Collection, fieldName string) (string, 
 	return indexName, err
 }
 
-func FindOneWithId(ctx context.Context, collection *mongo.Collection, id interface{}, objectId bool, modelType reflect.Type) (interface{}, error) {
-	if objectId {
-		objId := id.(string)
-		return FindOneWithObjectId(ctx, collection, objId, modelType)
-	}
-	return FindOne(ctx, collection, bson.M{"_id": id}, modelType)
-}
-
-func FindOneWithObjectId(ctx context.Context, collection *mongo.Collection, id string, modelType reflect.Type) (interface{}, error) {
-	objectId, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return nil, err
-	}
-	return FindOne(ctx, collection, bson.M{"_id": objectId}, modelType)
-}
-
-func FindOne(ctx context.Context, collection *mongo.Collection, query bson.M, modelType reflect.Type) (interface{}, error) {
-	x := collection.FindOne(ctx, query)
-	if x.Err() != nil {
-		if fmt.Sprint(x.Err()) == "mongo: no documents in result" {
-			return nil, nil
-		}
-		return nil, x.Err()
-	}
-	result := reflect.New(modelType).Interface()
-	er2 := x.Decode(result)
-	if er2 != nil {
-		if strings.Contains(fmt.Sprint(er2), "cannot decode") {
-			return result, nil
-		}
-		return nil, er2
-	}
-	return result, nil
-}
-
-func FindOneAndDecode(ctx context.Context, collection *mongo.Collection, query bson.M, result interface{}) (bool, error) {
-	x := collection.FindOne(ctx, query)
-	if x.Err() != nil {
-		if fmt.Sprint(x.Err()) == "mongo: no documents in result" {
-			return false, nil
-		}
-		return false, x.Err()
-	}
-	er2 := x.Decode(result)
-	return true, er2
-}
-
 func difference(slice1 []string, slice2 []string) []string {
 	var diff []string
 	for i := 0; i < 2; i++ {
@@ -203,35 +156,6 @@ func Find(ctx context.Context, collection *mongo.Collection, query bson.M, model
 	er2 := cur.All(ctx, arr)
 	_ = cur.Close(ctx)
 	return arr, er2
-}
-
-func FindAndDecode(ctx context.Context, collection *mongo.Collection, query bson.M, arr interface{}) (bool, error) {
-	cur, err := collection.Find(ctx, query)
-	if err != nil {
-		return false, err
-	}
-	er2 := cur.All(ctx, arr)
-	return true, er2
-}
-
-func Exist(ctx context.Context, collection *mongo.Collection, id interface{}, objectId bool) (bool, error) {
-	query := bson.M{"_id": id}
-	if objectId {
-		objId, err := primitive.ObjectIDFromHex(id.(string))
-		if err != nil {
-			return false, err
-		}
-		query = bson.M{"_id": objId}
-	}
-	x := collection.FindOne(ctx, query)
-	if x.Err() != nil {
-		if fmt.Sprint(x.Err()) == "mongo: no documents in result" {
-			return false, nil
-		} else {
-			return false, x.Err()
-		}
-	}
-	return true, nil
 }
 
 func DeleteOne(ctx context.Context, coll *mongo.Collection, query bson.M) (int64, error) {
@@ -825,61 +749,6 @@ func FindFieldByName(modelType reflect.Type, fieldName string) (int, string, str
 	return -1, fieldName, fieldName
 }
 
-func FindIdField(modelType reflect.Type) (int, string, string) {
-	return FindField(modelType, "_id")
-}
-
-func FindField(modelType reflect.Type, bsonName string) (int, string, string) {
-	numField := modelType.NumField()
-	for i := 0; i < numField; i++ {
-		field := modelType.Field(i)
-		bsonTag := field.Tag.Get("bson")
-		tags := strings.Split(bsonTag, ",")
-		json := field.Name
-		if tag1, ok1 := field.Tag.Lookup("json"); ok1 {
-			json = strings.Split(tag1, ",")[0]
-		}
-		for _, tag := range tags {
-			if strings.TrimSpace(tag) == bsonName {
-				return i, field.Name, json
-			}
-		}
-	}
-	return -1, "", ""
-}
-
-func GetFieldByJson(modelType reflect.Type, jsonName string) (int, string, string) {
-	numField := modelType.NumField()
-	for i := 0; i < numField; i++ {
-		field := modelType.Field(i)
-		tag1, ok1 := field.Tag.Lookup("json")
-		if ok1 && strings.Split(tag1, ",")[0] == jsonName {
-			if tag2, ok2 := field.Tag.Lookup("bson"); ok2 {
-				return i, field.Name, strings.Split(tag2, ",")[0]
-			}
-			return i, field.Name, ""
-		}
-	}
-	return -1, jsonName, jsonName
-}
-func GetFields(fields []string, modelType reflect.Type) bson.M {
-	if len(fields) <= 0 {
-		return nil
-	}
-	ex := false
-	var fs = bson.M{}
-	for _, key := range fields {
-		_, _, columnName := GetFieldByJson(modelType, key)
-		if len(columnName) >= 0 {
-			fs[columnName] = 1
-			ex = true
-		}
-	}
-	if ex == false {
-		return nil
-	}
-	return fs
-}
 //For Search and Patch
 func GetBsonName(modelType reflect.Type, fieldName string) string {
 	field, found := modelType.FieldByName(fieldName)
@@ -1204,27 +1073,4 @@ func InArray(value int, arr []int) bool {
 		}
 	}
 	return false
-}
-
-func MapModels(ctx context.Context, models interface{}, mp func(context.Context, interface{}) (interface{}, error)) (interface{}, error) {
-	vo := reflect.Indirect(reflect.ValueOf(models))
-	if vo.Kind() == reflect.Ptr {
-		vo = reflect.Indirect(vo)
-	}
-	if vo.Kind() == reflect.Slice {
-		le := vo.Len()
-		for i := 0; i < le; i++ {
-			x := vo.Index(i)
-			k := x.Kind()
-			if k == reflect.Struct {
-				y := x.Addr().Interface()
-				mp(ctx, y)
-			} else {
-				y := x.Interface()
-				mp(ctx, y)
-			}
-
-		}
-	}
-	return models, nil
 }
