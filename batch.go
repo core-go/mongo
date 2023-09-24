@@ -11,16 +11,6 @@ import (
 	"strings"
 )
 
-func findIndex(model interface{}, fieldName string) int {
-	modelType := reflect.Indirect(reflect.ValueOf(model))
-	numField := modelType.NumField()
-	for i := 0; i < numField; i++ {
-		if modelType.Type().Field(i).Name == fieldName {
-			return i
-		}
-	}
-	return -1
-}
 func appendToArray(arr interface{}, item interface{}) interface{} {
 	arrValue := reflect.ValueOf(arr)
 	elemValue := reflect.Indirect(arrValue)
