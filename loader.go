@@ -81,7 +81,7 @@ func (m *Loader) Load(ctx context.Context, id interface{}) (interface{}, error) 
 	return r, er1
 }
 
-func (m *Loader) LoadAndDecode(ctx context.Context, id interface{}, result interface{}) (bool, error) {
+func (m *Loader) Get(ctx context.Context, id interface{}, result interface{}) (bool, error) {
 	if m.idObjectId {
 		objId := id.(string)
 		objectId, err := primitive.ObjectIDFromHex(objId)
@@ -109,6 +109,9 @@ func (m *Loader) LoadAndDecode(ctx context.Context, id interface{}, result inter
 	return ok, er2
 }
 
+func (m *Loader) LoadAndDecode(ctx context.Context, id interface{}, result interface{}) (bool, error) {
+	return m.Get(ctx, id, result)
+}
 func (m *Loader) Exist(ctx context.Context, id interface{}) (bool, error) {
 	return Exist(ctx, m.Collection, id, m.idObjectId)
 }
