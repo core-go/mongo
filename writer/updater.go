@@ -1,9 +1,11 @@
-package mongo
+package writer
 
 import (
 	"context"
 	"go.mongodb.org/mongo-driver/mongo"
 	"reflect"
+
+	mgo "github.com/core-go/mongo"
 )
 
 type Updater struct {
@@ -19,7 +21,7 @@ func NewUpdaterWithId(database *mongo.Database, collectionName string, modelType
 		mp = options[0]
 	}
 	if len(fieldName) == 0 {
-		_, idName, _ := FindIdField(modelType)
+		_, idName, _ := mgo.FindIdField(modelType)
 		fieldName = idName
 	}
 	collection := database.Collection(collectionName)
@@ -36,7 +38,7 @@ func (w *Updater) Write(ctx context.Context, model interface{}) error {
 		if er0 != nil {
 			return er0
 		}
-		return Update(ctx, w.collection, m2, w.IdName)
+		return mgo.Update(ctx, w.collection, m2, w.IdName)
 	}
-	return Update(ctx, w.collection, model, w.IdName)
+	return mgo.Update(ctx, w.collection, model, w.IdName)
 }

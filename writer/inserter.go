@@ -1,4 +1,4 @@
-package mongo
+package writer
 
 import (
 	"context"

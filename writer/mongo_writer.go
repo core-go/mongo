@@ -1,9 +1,11 @@
-package mongo
+package writer
 
 import (
 	"context"
 	"go.mongodb.org/mongo-driver/mongo"
 	"reflect"
+
+	mgo "github.com/core-go/mongo"
 )
 
 type MongoWriter struct {
@@ -19,7 +21,7 @@ func NewMongoWriterById(database *mongo.Database, collectionName string, modelTy
 	}
 	collection := database.Collection(collectionName)
 	if len(fieldName) == 0 {
-		_, idName, _ := FindIdField(modelType)
+		_, idName, _ := mgo.FindIdField(modelType)
 		fieldName = idName
 	}
 	return &MongoWriter{collection: collection, IdName: fieldName, Map: mp}
@@ -35,8 +37,8 @@ func (w *MongoWriter) Write(ctx context.Context, model interface{}) error {
 		if er0 != nil {
 			return er0
 		}
-		return Upsert(ctx, w.collection, m2, w.IdName)
+		return mgo.Upsert(ctx, w.collection, m2, w.IdName)
 	}
-	err := Upsert(ctx, w.collection, model, w.IdName)
+	err := mgo.Upsert(ctx, w.collection, model, w.IdName)
 	return err
 }
