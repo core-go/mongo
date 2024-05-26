@@ -8,14 +8,14 @@ import (
 	mgo "github.com/core-go/mongo"
 )
 
-type Updater struct {
+type Updater[T any] struct {
 	collection *mongo.Collection
 	IdName     string
 	Map        func(ctx context.Context, model interface{}) (interface{}, error)
 	modelType  reflect.Type
 }
 
-func NewUpdaterWithId(database *mongo.Database, collectionName string, modelType reflect.Type, fieldName string, options ...func(context.Context, interface{}) (interface{}, error)) *Updater {
+func NewUpdaterWithId[T any](database *mongo.Database, collectionName string, modelType reflect.Type, fieldName string, options ...func(context.Context, interface{}) (interface{}, error)) *Updater[T] {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
 		mp = options[0]
@@ -25,14 +25,14 @@ func NewUpdaterWithId(database *mongo.Database, collectionName string, modelType
 		fieldName = idName
 	}
 	collection := database.Collection(collectionName)
-	return &Updater{collection: collection, IdName: fieldName, Map: mp, modelType: modelType}
+	return &Updater[T]{collection: collection, IdName: fieldName, Map: mp, modelType: modelType}
 }
 
-func NewUpdater(database *mongo.Database, collectionName string, modelType reflect.Type, options ...func(context.Context, interface{}) (interface{}, error)) *Updater {
-	return NewUpdaterWithId(database, collectionName, modelType, "", options...)
+func NewUpdater[T any](database *mongo.Database, collectionName string, modelType reflect.Type, options ...func(context.Context, interface{}) (interface{}, error)) *Updater[T] {
+	return NewUpdaterWithId[T](database, collectionName, modelType, "", options...)
 }
 
-func (w *Updater) Write(ctx context.Context, model interface{}) error {
+func (w *Updater[T]) Write(ctx context.Context, model T) error {
 	if w.Map != nil {
 		m2, er0 := w.Map(ctx, model)
 		if er0 != nil {
