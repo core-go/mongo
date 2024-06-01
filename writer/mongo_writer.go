@@ -21,6 +21,9 @@ func NewMongoWriterById[T any](database *mongo.Database, collectionName string, 
 	}
 	var t T
 	modelType := reflect.TypeOf(t)
+	if modelType.Kind() == reflect.Ptr {
+		modelType = modelType.Elem()
+	}
 	collection := database.Collection(collectionName)
 	if len(fieldName) == 0 {
 		_, idName, _ := mgo.FindIdField(modelType)

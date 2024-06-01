@@ -33,6 +33,9 @@ func UseLoad[T any, K any](db *mongo.Database, collectionName string, options ..
 func NewMongoLoader[T any, K any](db *mongo.Database, collectionName string, idObjectId bool, options ...func(context.Context, interface{}) (interface{}, error)) *Loader[T, K] {
 	var t T
 	modelType := reflect.TypeOf(t)
+	if modelType.Kind() == reflect.Ptr {
+		modelType = modelType.Elem()
+	}
 	idIndex, _, jsonIdName := mgo.FindIdField(modelType)
 	if idIndex < 0 {
 		log.Println(modelType.Name() + " loader can't use functions that need Id value (Ex Load, Exist, Save, Update) because don't have any fields of " + modelType.Name() + " struct define _id bson tag.")
