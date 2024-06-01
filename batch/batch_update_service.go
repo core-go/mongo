@@ -1,10 +1,12 @@
-package mongo
+package batch
 
 import (
 	"context"
 	"go.mongodb.org/mongo-driver/mongo"
 	"log"
 	"reflect"
+
+	mgo "github.com/core-go/mongo"
 )
 
 type BatchUpdateService struct {
@@ -15,7 +17,7 @@ type BatchUpdateService struct {
 }
 
 func NewBatchUpdateService(db *mongo.Database, collection string, modelType reflect.Type, idObjectId bool) *BatchUpdateService {
-	_, idName, _ := FindIdField(modelType)
+	_, idName, _ := mgo.FindIdField(modelType)
 	if len(idName) == 0 {
 		log.Println(modelType.Name() + " repository can't use functions that need Id value (Ex GetById, ExistsById, Save, Update) because don't have any fields of " + modelType.Name() + " struct define _id bson tag.")
 	}
@@ -27,16 +29,16 @@ func NewDefaultBatchUpdateService(db *mongo.Database, collection string, modelTy
 }
 
 func (m *BatchUpdateService) InsertMany(ctx context.Context, models interface{}) (int64, bool, error) {
-	objects, _ := MapToMongoObjects(models, m.idName, m.idObjectId, m.modelType, true)
+	objects, _ := mgo.MapToMongoObjects(models, m.idName, m.idObjectId, m.modelType, true)
 	values := reflect.ValueOf(models)
 	length := int64(values.Len())
-	duplicate, err := InsertMany(ctx, m.collection, objects)
+	duplicate, err := mgo.InsertMany(ctx, m.collection, objects)
 	return length, duplicate, err
 }
 
 func (m *BatchUpdateService) UpdateMany(ctx context.Context, models interface{}) (int64, error) {
-	objects, _ := MapToMongoObjects(models, m.idName, m.idObjectId, m.modelType, false)
-	rs, err := UpdateMany(ctx, m.collection, objects, m.idName)
+	objects, _ := mgo.MapToMongoObjects(models, m.idName, m.idObjectId, m.modelType, false)
+	rs, err := mgo.UpdateMany(ctx, m.collection, objects, m.idName)
 	if err != nil {
 		return 0, err
 	}
@@ -44,8 +46,8 @@ func (m *BatchUpdateService) UpdateMany(ctx context.Context, models interface{})
 }
 
 func (m *BatchUpdateService) SaveMany(ctx context.Context, models interface{}) (int64, error) {
-	objects, _ := MapToMongoObjects(models, m.idName, m.idObjectId, m.modelType, false)
-	rs, err := UpsertMany(ctx, m.collection, objects, m.idName)
+	objects, _ := mgo.MapToMongoObjects(models, m.idName, m.idObjectId, m.modelType, false)
+	rs, err := mgo.UpsertMany(ctx, m.collection, objects, m.idName)
 	if err != nil {
 		return 0, err
 	}

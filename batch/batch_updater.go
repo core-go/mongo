@@ -1,46 +1,53 @@
-package mongo
+package batch
 
 import (
 	"context"
 	"go.mongodb.org/mongo-driver/mongo"
 	"reflect"
+
+	mgo "github.com/core-go/mongo"
 )
 
-type BatchWriter struct {
+type BatchUpdater struct {
 	collection *mongo.Collection
 	IdName     string
+	modelType  reflect.Type
+	modelsType reflect.Type
 	Map        func(ctx context.Context, model interface{}) (interface{}, error)
 }
 
-func NewBatchWriterWithId(database *mongo.Database, collectionName string, modelType reflect.Type, fieldName string, options...func(context.Context, interface{}) (interface{}, error)) *BatchWriter {
+func NewBatchUpdaterWithId(database *mongo.Database, collectionName string, modelType reflect.Type, fieldName string, options ...func(context.Context, interface{}) (interface{}, error)) *BatchUpdater {
+	if len(fieldName) == 0 {
+		_, idName, _ := mgo.FindIdField(modelType)
+		fieldName = idName
+	}
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
 		mp = options[0]
 	}
-	if len(fieldName) == 0 {
-		_, idName, _ := FindIdField(modelType)
-		fieldName = idName
-	}
+	modelsType := reflect.Zero(reflect.SliceOf(modelType)).Type()
 	collection := database.Collection(collectionName)
-	return &BatchWriter{collection, fieldName, mp}
+	return &BatchUpdater{collection, fieldName, modelType, modelsType, mp}
 }
-func NewBatchWriter(database *mongo.Database, collectionName string, modelType reflect.Type, options...func(context.Context, interface{}) (interface{}, error)) *BatchWriter {
-	return NewBatchWriterWithId(database, collectionName, modelType, "", options...)
+
+func NewBatchUpdater(database *mongo.Database, collectionName string, modelType reflect.Type, options ...func(context.Context, interface{}) (interface{}, error)) *BatchUpdater {
+	return NewBatchUpdaterWithId(database, collectionName, modelType, "", options...)
 }
-func (w *BatchWriter) Write(ctx context.Context, models interface{}) ([]int, []int, error) {
+
+func (w *BatchUpdater) Write(ctx context.Context, models interface{}) ([]int, []int, error) {
 	successIndices := make([]int, 0)
 	failIndices := make([]int, 0)
 
 	s := reflect.ValueOf(models)
 	var err error
 	if w.Map != nil {
-		m2, er0 := MapModels(ctx, models, w.Map)
+		m2, er0 := mgo.MapModels(ctx, models, w.Map)
 		if er0 != nil {
 			return successIndices, failIndices, er0
 		}
-		_, err = UpsertMany(ctx, w.collection, m2, w.IdName)
+		_, err = mgo.UpdateMany(ctx, w.collection, m2, w.IdName)
 	} else {
-		_, err = UpsertMany(ctx, w.collection, models, w.IdName)
+		_, err = mgo.UpdateMany(ctx, w.collection, models, w.IdName)
 	}
 
 	if err == nil {
@@ -56,7 +63,7 @@ func (w *BatchWriter) Write(ctx context.Context, models interface{}) ([]int, []i
 			failIndices = append(failIndices, writeError.Index)
 		}
 		for i := 0; i < s.Len(); i++ {
-			if !InArray(i, failIndices) {
+			if !mgo.InArray(i, failIndices) {
 				successIndices = append(successIndices, i)
 			}
 		}

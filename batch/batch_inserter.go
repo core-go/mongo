@@ -1,9 +1,11 @@
-package mongo
+package batch
 
 import (
 	"context"
 	"go.mongodb.org/mongo-driver/mongo"
 	"reflect"
+
+	mgo "github.com/core-go/mongo"
 )
 
 type BatchInserter struct {
@@ -11,7 +13,7 @@ type BatchInserter struct {
 	Map        func(ctx context.Context, model interface{}) (interface{}, error)
 }
 
-func NewBatchInserter(database *mongo.Database, collectionName string, options...func(context.Context, interface{}) (interface{}, error)) *BatchInserter {
+func NewBatchInserter(database *mongo.Database, collectionName string, options ...func(context.Context, interface{}) (interface{}, error)) *BatchInserter {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
 		mp = options[0]
@@ -26,13 +28,13 @@ func (w *BatchInserter) Write(ctx context.Context, models interface{}) ([]int, [
 	s := reflect.ValueOf(models)
 	var er1 error
 	if w.Map != nil {
-		m2, er0 := MapModels(ctx, models, w.Map)
+		m2, er0 := mgo.MapModels(ctx, models, w.Map)
 		if er0 != nil {
 			return successIndices, failIndices, er0
 		}
-		_, _, er1 = InsertManySkipErrors(ctx, w.collection, m2)
+		_, _, er1 = mgo.InsertManySkipErrors(ctx, w.collection, m2)
 	} else {
-		_, _, er1 = InsertManySkipErrors(ctx, w.collection, models)
+		_, _, er1 = mgo.InsertManySkipErrors(ctx, w.collection, models)
 	}
 
 	if er1 == nil {
@@ -48,7 +50,7 @@ func (w *BatchInserter) Write(ctx context.Context, models interface{}) ([]int, [
 			failIndices = append(failIndices, writeError.Index)
 		}
 		for i := 0; i < s.Len(); i++ {
-			if !InArray(i, failIndices) {
+			if !mgo.InArray(i, failIndices) {
 				successIndices = append(successIndices, i)
 			}
 		}

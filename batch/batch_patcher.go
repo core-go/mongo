@@ -1,9 +1,11 @@
-package mongo
+package batch
 
 import (
 	"context"
 	"go.mongodb.org/mongo-driver/mongo"
 	"reflect"
+
+	mgo "github.com/core-go/mongo"
 )
 
 type BatchPatcher struct {
@@ -15,7 +17,7 @@ type BatchPatcher struct {
 
 func NewBatchPatcherWithId(database *mongo.Database, collectionName string, modelType reflect.Type, fieldName string) *BatchPatcher {
 	if len(fieldName) == 0 {
-		_, idName, _ := FindIdField(modelType)
+		_, idName, _ := mgo.FindIdField(modelType)
 		fieldName = idName
 	}
 	return CreateMongoBatchPatcherIdName(database, collectionName, modelType, fieldName)
@@ -36,7 +38,7 @@ func (w *BatchPatcher) Write(ctx context.Context, models []map[string]interface{
 	failIndices := make([]int, 0)
 
 	s := reflect.ValueOf(models)
-	_, err := PatchMaps(ctx, w.collection, models, w.IdName)
+	_, err := mgo.PatchMaps(ctx, w.collection, models, w.IdName)
 
 	if err == nil {
 		// Return full success
@@ -51,7 +53,7 @@ func (w *BatchPatcher) Write(ctx context.Context, models []map[string]interface{
 			failIndices = append(failIndices, writeError.Index)
 		}
 		for i := 0; i < s.Len(); i++ {
-			if !InArray(i, failIndices) {
+			if !mgo.InArray(i, failIndices) {
 				successIndices = append(successIndices, i)
 			}
 		}
