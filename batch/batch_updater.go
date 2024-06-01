@@ -8,70 +8,54 @@ import (
 	mgo "github.com/core-go/mongo"
 )
 
-type BatchUpdater struct {
+type BatchUpdater[T any] struct {
 	collection *mongo.Collection
-	IdName     string
-	modelType  reflect.Type
-	modelsType reflect.Type
+	Idx        int
 	Map        func(ctx context.Context, model interface{}) (interface{}, error)
 }
 
-func NewBatchUpdaterWithId(database *mongo.Database, collectionName string, modelType reflect.Type, fieldName string, options ...func(context.Context, interface{}) (interface{}, error)) *BatchUpdater {
-	if len(fieldName) == 0 {
-		_, idName, _ := mgo.FindIdField(modelType)
-		fieldName = idName
+func NewBatchUpdaterWithId[T any](database *mongo.Database, collectionName string, options ...func(context.Context, interface{}) (interface{}, error)) *BatchUpdater[T] {
+	var t T
+	modelType := reflect.TypeOf(t)
+	if modelType.Kind() == reflect.Ptr {
+		modelType = modelType.Elem()
 	}
+	idx, _, _ := mgo.FindIdField(modelType)
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
 		mp = options[0]
 	}
-	modelsType := reflect.Zero(reflect.SliceOf(modelType)).Type()
 	collection := database.Collection(collectionName)
-	return &BatchUpdater{collection, fieldName, modelType, modelsType, mp}
+	return &BatchUpdater[T]{collection, idx, mp}
 }
 
-func NewBatchUpdater(database *mongo.Database, collectionName string, modelType reflect.Type, options ...func(context.Context, interface{}) (interface{}, error)) *BatchUpdater {
-	return NewBatchUpdaterWithId(database, collectionName, modelType, "", options...)
+func NewBatchUpdater[T any](database *mongo.Database, collectionName string, options ...func(context.Context, interface{}) (interface{}, error)) *BatchUpdater[T] {
+	return NewBatchUpdaterWithId[T](database, collectionName, options...)
 }
 
-func (w *BatchUpdater) Write(ctx context.Context, models interface{}) ([]int, []int, error) {
-	successIndices := make([]int, 0)
+func (w *BatchUpdater[T]) Write(ctx context.Context, models []T) ([]int, error) {
 	failIndices := make([]int, 0)
-
-	s := reflect.ValueOf(models)
 	var err error
 	if w.Map != nil {
-		m2, er0 := mgo.MapModels(ctx, models, w.Map)
+		_, er0 := mgo.MapModels(ctx, models, w.Map)
 		if er0 != nil {
-			return successIndices, failIndices, er0
+			return failIndices, er0
 		}
-		_, err = mgo.UpdateMany(ctx, w.collection, m2, w.IdName)
-	} else {
-		_, err = mgo.UpdateMany(ctx, w.collection, models, w.IdName)
 	}
-
+	_, err = UpdateMany[T](ctx, w.collection, models, w.Idx)
 	if err == nil {
-		// Return full success
-		for i := 0; i < s.Len(); i++ {
-			successIndices = append(successIndices, i)
-		}
-		return successIndices, failIndices, err
+		return failIndices, err
 	}
 
 	if bulkWriteException, ok := err.(mongo.BulkWriteException); ok {
 		for _, writeError := range bulkWriteException.WriteErrors {
 			failIndices = append(failIndices, writeError.Index)
 		}
-		for i := 0; i < s.Len(); i++ {
-			if !mgo.InArray(i, failIndices) {
-				successIndices = append(successIndices, i)
-			}
-		}
 	} else {
-		// Return full fail
-		for i := 0; i < s.Len(); i++ {
+		l := len(models)
+		for i := 0; i < l; i++ {
 			failIndices = append(failIndices, i)
 		}
 	}
-	return successIndices, failIndices, err
+	return failIndices, err
 }

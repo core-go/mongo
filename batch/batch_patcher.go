@@ -3,65 +3,43 @@ package batch
 import (
 	"context"
 	"go.mongodb.org/mongo-driver/mongo"
-	"reflect"
-
-	mgo "github.com/core-go/mongo"
 )
 
 type BatchPatcher struct {
 	collection *mongo.Collection
 	IdName     string
-	modelType  reflect.Type
-	modelsType reflect.Type
 }
 
-func NewBatchPatcherWithId(database *mongo.Database, collectionName string, modelType reflect.Type, fieldName string) *BatchPatcher {
-	if len(fieldName) == 0 {
-		_, idName, _ := mgo.FindIdField(modelType)
-		fieldName = idName
-	}
-	return CreateMongoBatchPatcherIdName(database, collectionName, modelType, fieldName)
+func NewBatchPatcherWithId(database *mongo.Database, collectionName string, fieldName string) *BatchPatcher {
+	return CreateMongoBatchPatcherIdName(database, collectionName, fieldName)
 }
 
-func NewBatchPatcher(database *mongo.Database, collectionName string, modelType reflect.Type) *BatchPatcher {
-	return CreateMongoBatchPatcherIdName(database, collectionName, modelType, "")
+func NewBatchPatcher(database *mongo.Database, collectionName string) *BatchPatcher {
+	return CreateMongoBatchPatcherIdName(database, collectionName, "")
 }
 
-func CreateMongoBatchPatcherIdName(database *mongo.Database, collectionName string, modelType reflect.Type, fieldName string) *BatchPatcher {
-	modelsType := reflect.Zero(reflect.SliceOf(modelType)).Type()
+func CreateMongoBatchPatcherIdName(database *mongo.Database, collectionName string, fieldName string) *BatchPatcher {
 	collection := database.Collection(collectionName)
-	return &BatchPatcher{collection, fieldName, modelType, modelsType}
+	return &BatchPatcher{collection, fieldName}
 }
 
-func (w *BatchPatcher) Write(ctx context.Context, models []map[string]interface{}) ([]int, []int, error) {
-	successIndices := make([]int, 0)
+func (w *BatchPatcher) Write(ctx context.Context, models []map[string]interface{}) ([]int, error) {
 	failIndices := make([]int, 0)
-
-	s := reflect.ValueOf(models)
-	_, err := mgo.PatchMaps(ctx, w.collection, models, w.IdName)
+	_, err := PatchMaps(ctx, w.collection, models, w.IdName)
 
 	if err == nil {
-		// Return full success
-		for i := 0; i < s.Len(); i++ {
-			successIndices = append(successIndices, i)
-		}
-		return successIndices, failIndices, err
+		return failIndices, err
 	}
 
 	if bulkWriteException, ok := err.(mongo.BulkWriteException); ok {
 		for _, writeError := range bulkWriteException.WriteErrors {
 			failIndices = append(failIndices, writeError.Index)
 		}
-		for i := 0; i < s.Len(); i++ {
-			if !mgo.InArray(i, failIndices) {
-				successIndices = append(successIndices, i)
-			}
-		}
 	} else {
-		// Return full fail
-		for i := 0; i < s.Len(); i++ {
+		l := len(models)
+		for i := 0; i < l; i++ {
 			failIndices = append(failIndices, i)
 		}
 	}
-	return successIndices, failIndices, err
+	return failIndices, err
 }
