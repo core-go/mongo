@@ -11,12 +11,11 @@ import (
 type Updater[T any] struct {
 	collection *mongo.Collection
 	IdName     string
-	Map        func(ctx context.Context, model interface{}) (interface{}, error)
-	modelType  reflect.Type
+	Map        func(T) T
 }
 
-func NewUpdaterWithId[T any](database *mongo.Database, collectionName string, fieldName string, options ...func(context.Context, interface{}) (interface{}, error)) *Updater[T] {
-	var mp func(context.Context, interface{}) (interface{}, error)
+func NewUpdaterWithId[T any](database *mongo.Database, collectionName string, fieldName string, options ...func(T) T) *Updater[T] {
+	var mp func(T) T
 	if len(options) >= 1 {
 		mp = options[0]
 	}
@@ -33,16 +32,13 @@ func NewUpdaterWithId[T any](database *mongo.Database, collectionName string, fi
 	return &Updater[T]{collection: collection, IdName: fieldName, Map: mp}
 }
 
-func NewUpdater[T any](database *mongo.Database, collectionName string, options ...func(context.Context, interface{}) (interface{}, error)) *Updater[T] {
+func NewUpdater[T any](database *mongo.Database, collectionName string, options ...func(T) T) *Updater[T] {
 	return NewUpdaterWithId[T](database, collectionName, "", options...)
 }
 
 func (w *Updater[T]) Write(ctx context.Context, model T) error {
 	if w.Map != nil {
-		m2, er0 := w.Map(ctx, model)
-		if er0 != nil {
-			return er0
-		}
+		m2 := w.Map(model)
 		return mgo.Update(ctx, w.collection, m2, w.IdName)
 	}
 	return mgo.Update(ctx, w.collection, model, w.IdName)

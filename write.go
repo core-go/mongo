@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-//For Get By Id
+// For Get By Id
 func FindFieldIndex(modelType reflect.Type, fieldName string) int {
 	numField := modelType.NumField()
 	for i := 0; i < numField; i++ {
@@ -83,7 +83,14 @@ func InsertOne(ctx context.Context, collection *mongo.Collection, model interfac
 }
 func InsertOneWithVersion(ctx context.Context, collection *mongo.Collection, model interface{}, versionIndex int) (int64, error) {
 	var defaultVersion interface{}
-	modelType := reflect.TypeOf(model).Elem()
+	modelType := reflect.TypeOf(model)
+	var vo reflect.Value
+	if modelType.Kind() == reflect.Ptr {
+		modelType = modelType.Elem()
+		vo = reflect.Indirect(reflect.ValueOf(model))
+	} else {
+		vo = reflect.ValueOf(&model).Elem()
+	}
 	versionType := modelType.Field(versionIndex).Type
 	switch versionType.String() {
 	case "int":
@@ -95,14 +102,11 @@ func InsertOneWithVersion(ctx context.Context, collection *mongo.Collection, mod
 	default:
 		panic("not support type's version")
 	}
-	model, err := setValue(model, versionIndex, defaultVersion)
-	if err != nil {
-		return 0, err
-	}
+	vo.Field(versionIndex).Set(reflect.ValueOf(defaultVersion)) // model, err := setValue(model, versionIndex, defaultVersion)
 	return InsertOne(ctx, collection, model)
 }
 
-//For Update
+// For Update
 func BuildQueryId(model interface{}, fieldname string) bson.M {
 	query := bson.M{}
 	if i := findIndex(model, fieldname); i != -1 {
@@ -130,7 +134,7 @@ func BuildQueryByIdFromObject(object interface{}) bson.M {
 	}
 }
 
-//Version
+// Version
 func copyMap(originalMap map[string]interface{}) map[string]interface{} {
 	newMap := make(map[string]interface{})
 	for k, v := range originalMap {
@@ -217,7 +221,7 @@ func UpdateByIdAndVersion(ctx context.Context, collection *mongo.Collection, mod
 	return rowAffect, er1
 }
 
-//For Patch
+// For Patch
 func GetJsonByIndex(modelType reflect.Type, fieldIndex int) string {
 	if tag, ok := modelType.Field(fieldIndex).Tag.Lookup("json"); ok {
 		return strings.Split(tag, ",")[0]

@@ -11,17 +11,17 @@ import (
 type BatchUpdater[T any] struct {
 	collection *mongo.Collection
 	Idx        int
-	Map        func(ctx context.Context, model interface{}) (interface{}, error)
+	Map        func(T) T
 }
 
-func NewBatchUpdaterWithId[T any](database *mongo.Database, collectionName string, options ...func(context.Context, interface{}) (interface{}, error)) *BatchUpdater[T] {
+func NewBatchUpdaterWithId[T any](database *mongo.Database, collectionName string, options ...func(T) T) *BatchUpdater[T] {
 	var t T
 	modelType := reflect.TypeOf(t)
 	if modelType.Kind() == reflect.Ptr {
 		modelType = modelType.Elem()
 	}
 	idx, _, _ := mgo.FindIdField(modelType)
-	var mp func(context.Context, interface{}) (interface{}, error)
+	var mp func(T) T
 	if len(options) >= 1 {
 		mp = options[0]
 	}
@@ -29,7 +29,7 @@ func NewBatchUpdaterWithId[T any](database *mongo.Database, collectionName strin
 	return &BatchUpdater[T]{collection, idx, mp}
 }
 
-func NewBatchUpdater[T any](database *mongo.Database, collectionName string, options ...func(context.Context, interface{}) (interface{}, error)) *BatchUpdater[T] {
+func NewBatchUpdater[T any](database *mongo.Database, collectionName string, options ...func(T) T) *BatchUpdater[T] {
 	return NewBatchUpdaterWithId[T](database, collectionName, options...)
 }
 
@@ -37,9 +37,9 @@ func (w *BatchUpdater[T]) Write(ctx context.Context, models []T) ([]int, error) 
 	failIndices := make([]int, 0)
 	var err error
 	if w.Map != nil {
-		_, er0 := mgo.MapModels(ctx, models, w.Map)
-		if er0 != nil {
-			return failIndices, er0
+		l := len(models)
+		for i := 0; i < l; i++ {
+			models[i] = w.Map(models[i])
 		}
 	}
 	_, err = UpdateMany[T](ctx, w.collection, models, w.Idx)

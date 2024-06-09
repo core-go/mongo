@@ -19,18 +19,18 @@ type SearchAdapter[T any, K any, F any] struct {
 
 func NewSearchAdapterWithSortAndVersion[T any, K any, F any](db *mongo.Database, collectionName string, buildQuery func(m F) (bson.D, bson.M), getSort func(interface{}) string, buildSort func(string, reflect.Type) bson.D, modelType reflect.Type, idObjectId bool, versionField string, options ...mgo.Mapper) *SearchAdapter[T, K, F] {
 	var adapter *Adapter[T, K]
-	adapter = NewMongoAdapterWithVersion[T, K](db, collectionName, idObjectId, versionField, options...)
+	adapter = NewMongoAdapterWithVersion[T, K](db, collectionName, idObjectId, versionField)
 	return &SearchAdapter[T, K, F]{Adapter: adapter, BuildSort: buildSort, GetSort: getSort, BuildQuery: buildQuery}
 }
 
 func NewSearchAdapterWithVersion[T any, K any, F any](db *mongo.Database, collectionName string, buildQuery func(m F) (bson.D, bson.M), getSort func(interface{}) string, idObjectId bool, versionField string, options ...mgo.Mapper) *SearchAdapter[T, K, F] {
 	var adapter *Adapter[T, K]
-	adapter = NewMongoAdapterWithVersion[T, K](db, collectionName, idObjectId, versionField, options...)
+	adapter = NewMongoAdapterWithVersion[T, K](db, collectionName, idObjectId, versionField)
 	return &SearchAdapter[T, K, F]{Adapter: adapter, BuildSort: mgo.BuildSort, GetSort: getSort, BuildQuery: buildQuery}
 }
 func NewSearchAdapter[T any, K any, F any](db *mongo.Database, collectionName string, buildQuery func(m F) (bson.D, bson.M), getSort func(interface{}) string, options ...mgo.Mapper) *SearchAdapter[T, K, F] {
 	var adapter *Adapter[T, K]
-	adapter = NewMongoAdapterWithVersion[T, K](db, collectionName, false, "", options...)
+	adapter = NewMongoAdapterWithVersion[T, K](db, collectionName, false, "")
 	return &SearchAdapter[T, K, F]{Adapter: adapter, BuildSort: mgo.BuildSort, GetSort: getSort, BuildQuery: buildQuery}
 }
 func (b *SearchAdapter[T, K, F]) Search(ctx context.Context, m F, limit int64, skip int64) ([]T, int64, error) {
@@ -45,10 +45,13 @@ func (b *SearchAdapter[T, K, F]) Search(ctx context.Context, m F, limit int64, s
 	}
 	var total int64
 	var err error
-	if b.Mapper != nil {
-		total, err = mgo.BuildSearchResult(ctx, b.Collection, &objs, query, fields, sort, limit, skip, b.Mapper.DbToModel)
-	} else {
-		total, err = mgo.BuildSearchResult(ctx, b.Collection, &objs, query, fields, sort, limit, skip)
+	total, err = mgo.BuildSearchResult(ctx, b.Collection, &objs, query, fields, sort, limit, skip)
+	if b.Mapper == nil {
+		return objs, total, err
+	}
+	l := len(objs)
+	for i := 0; i < l; i++ {
+		objs[i] = b.Mapper.DbToModel(objs[i])
 	}
 	return objs, total, err
 }

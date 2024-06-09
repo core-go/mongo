@@ -13,6 +13,11 @@ import (
 	mgo "github.com/core-go/mongo"
 )
 
+type Mapper[T any] interface {
+	DbToModel(T) T
+	ModelToDb(T) T
+	MapToDb(map[string]interface{}) map[string]interface{}
+}
 type Adapter[T any, K any] struct {
 	Collection   *mongo.Collection
 	ModelType    reflect.Type
@@ -22,11 +27,11 @@ type Adapter[T any, K any] struct {
 	Map          map[string]string
 	versionField string
 	versionIndex int
-	Mapper       mgo.Mapper
+	Mapper       Mapper[T]
 }
 
-func NewMongoAdapterWithVersion[T any, K any](db *mongo.Database, collectionName string, idObjectId bool, versionField string, options ...mgo.Mapper) *Adapter[T, K] {
-	var mapper mgo.Mapper
+func NewMongoAdapterWithVersion[T any, K any](db *mongo.Database, collectionName string, idObjectId bool, versionField string, options ...Mapper[T]) *Adapter[T, K] {
+	var mapper Mapper[T]
 	if len(options) > 0 {
 		mapper = options[0]
 	}
@@ -37,7 +42,7 @@ func NewMongoAdapterWithVersion[T any, K any](db *mongo.Database, collectionName
 	}
 	idIndex, _, jsonIdName := mgo.FindIdField(modelType)
 	if idIndex < 0 {
-		log.Println(modelType.Name() + " loader can't use functions that need Id value (Ex Load, Exist, Save, Update) because don't have any fields of " + modelType.Name() + " struct define _id bson tag.")
+		log.Println(modelType.Name() + " Adapter can't use functions that need Id value (Ex Load, Exist, Save, Update) because don't have any fields of " + modelType.Name() + " struct define _id bson tag.")
 	}
 	if len(versionField) > 0 {
 		index := mgo.FindFieldIndex(modelType, versionField)
@@ -49,10 +54,10 @@ func NewMongoAdapterWithVersion[T any, K any](db *mongo.Database, collectionName
 	return &Adapter[T, K]{Collection: db.Collection(collectionName), ModelType: modelType, jsonIdName: jsonIdName, idIndex: idIndex, idObjectId: idObjectId,
 		Map: mgo.MakeBsonMap(modelType), Mapper: mapper}
 }
-func NewAdapterWithVersion[T any, K any](db *mongo.Database, collectionName string, versionField string, options ...mgo.Mapper) *Adapter[T, K] {
+func NewAdapterWithVersion[T any, K any](db *mongo.Database, collectionName string, versionField string, options ...Mapper[T]) *Adapter[T, K] {
 	return NewMongoAdapterWithVersion[T, K](db, collectionName, false, versionField, options...)
 }
-func NewAdapter[T any, K any](db *mongo.Database, collectionName string, options ...mgo.Mapper) *Adapter[T, K] {
+func NewAdapter[T any, K any](db *mongo.Database, collectionName string, options ...Mapper[T]) *Adapter[T, K] {
 	return NewMongoAdapterWithVersion[T, K](db, collectionName, false, "", options...)
 }
 func (a *Adapter[T, K]) All(ctx context.Context) ([]T, error) {
@@ -66,9 +71,12 @@ func (a *Adapter[T, K]) All(ctx context.Context) ([]T, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(objs) > 0 && a.Mapper != nil {
-		mgo.MapModels(ctx, objs, a.Mapper.DbToModel)
-		return objs, err
+	if a.Mapper == nil {
+		return objs, nil
+	}
+	l := len(objs)
+	for i := 0; i < l; i++ {
+		objs[i] = a.Mapper.DbToModel(objs[i])
 	}
 	return objs, nil
 }
@@ -84,20 +92,15 @@ func (a *Adapter[T, K]) Load(ctx context.Context, id K) (*T, error) {
 		query := bson.M{"_id": objectId}
 		ok, er0 := mgo.FindOneAndDecode(ctx, a.Collection, query, &res)
 		if ok && er0 == nil && a.Mapper != nil {
-			_, er2 := a.Mapper.DbToModel(ctx, &res)
-			if er2 != nil {
-				return &res, er2
-			}
+			res = a.Mapper.DbToModel(res)
 		}
 		return &res, er0
 	}
 	query := bson.M{"_id": id}
 	ok, er2 := mgo.FindOneAndDecode(ctx, a.Collection, query, &res)
 	if ok && er2 == nil && a.Mapper != nil {
-		_, er3 := a.Mapper.DbToModel(ctx, &res)
-		if er3 != nil {
-			return &res, er3
-		}
+		r2 := a.Mapper.DbToModel(res)
+		return &r2, nil
 	}
 	return &res, er2
 }
@@ -107,14 +110,11 @@ func (a *Adapter[T, K]) Exist(ctx context.Context, id K) (bool, error) {
 }
 func (a *Adapter[T, K]) Create(ctx context.Context, model *T) (int64, error) {
 	if a.Mapper != nil {
-		m2, err := a.Mapper.ModelToDb(ctx, model)
-		if err != nil {
-			return 0, err
-		}
+		m2 := a.Mapper.ModelToDb(*model)
 		if a.versionIndex >= 0 {
-			return mgo.InsertOneWithVersion(ctx, a.Collection, m2, a.versionIndex)
+			return mgo.InsertOneWithVersion(ctx, a.Collection, &m2, a.versionIndex)
 		}
-		return mgo.InsertOne(ctx, a.Collection, m2)
+		return mgo.InsertOne(ctx, a.Collection, &m2)
 	}
 	if a.versionIndex >= 0 {
 		return mgo.InsertOneWithVersion(ctx, a.Collection, model, a.versionIndex)
@@ -123,15 +123,12 @@ func (a *Adapter[T, K]) Create(ctx context.Context, model *T) (int64, error) {
 }
 func (a *Adapter[T, K]) Update(ctx context.Context, model *T) (int64, error) {
 	if a.Mapper != nil {
-		m2, err := a.Mapper.ModelToDb(ctx, model)
-		if err != nil {
-			return 0, err
-		}
+		obj2 := a.Mapper.ModelToDb(*model)
 		if a.versionIndex >= 0 {
-			return mgo.UpdateByIdAndVersion(ctx, a.Collection, m2, a.versionIndex)
+			return mgo.UpdateByIdAndVersion(ctx, a.Collection, &obj2, a.versionIndex)
 		}
-		idQuery := mgo.BuildQueryByIdFromObject(m2)
-		return mgo.UpdateOne(ctx, a.Collection, m2, idQuery)
+		idQuery := mgo.BuildQueryByIdFromObject(model)
+		return mgo.UpdateOne(ctx, a.Collection, &obj2, idQuery)
 	}
 	if a.versionIndex >= 0 {
 		return mgo.UpdateByIdAndVersion(ctx, a.Collection, model, a.versionIndex)
@@ -141,41 +138,29 @@ func (a *Adapter[T, K]) Update(ctx context.Context, model *T) (int64, error) {
 }
 func (a *Adapter[T, K]) Patch(ctx context.Context, model map[string]interface{}) (int64, error) {
 	if a.Mapper != nil {
-		m2, err := a.Mapper.ModelToDb(ctx, model)
-		if err != nil {
-			return 0, err
-		}
-		m3, ok1 := m2.(map[string]interface{})
-		if !ok1 {
-			return 0, fmt.Errorf("result of LocationToBson must be a map[string]interface{}")
-		}
+		m3 := a.Mapper.MapToDb(model)
 		if a.versionIndex >= 0 {
 			return mgo.PatchByIdAndVersion(ctx, a.Collection, m3, a.Map, a.jsonIdName, a.versionField)
 		}
-		jsonName0 := mgo.GetJsonByIndex(a.ModelType, a.idIndex)
-		idQuery := mgo.BuildQueryByIdFromMap(m3, jsonName0)
+		idQuery := mgo.BuildQueryByIdFromMap(m3, a.jsonIdName)
 		b0 := mgo.MapToBson(m3, a.Map)
 		return mgo.PatchOne(ctx, a.Collection, b0, idQuery)
 	}
 	if a.versionIndex >= 0 {
 		return mgo.PatchByIdAndVersion(ctx, a.Collection, model, a.Map, a.jsonIdName, a.versionField)
 	}
-	jsonName := mgo.GetJsonByIndex(a.ModelType, a.idIndex)
-	idQuery := mgo.BuildQueryByIdFromMap(model, jsonName)
+	idQuery := mgo.BuildQueryByIdFromMap(model, a.jsonIdName)
 	b := mgo.MapToBson(model, a.Map)
 	return mgo.PatchOne(ctx, a.Collection, b, idQuery)
 }
 func (a *Adapter[T, K]) Save(ctx context.Context, model *T) (int64, error) {
 	if a.Mapper != nil {
-		m2, err := a.Mapper.ModelToDb(ctx, model)
-		if err != nil {
-			return 0, err
-		}
+		m2 := a.Mapper.ModelToDb(*model)
 		if a.versionIndex >= 0 {
-			return mgo.UpsertOneWithVersion(ctx, a.Collection, m2, a.versionIndex)
+			return mgo.UpsertOneWithVersion(ctx, a.Collection, &m2, a.versionIndex)
 		}
 		idQuery := mgo.BuildQueryByIdFromObject(m2)
-		return mgo.UpsertOne(ctx, a.Collection, idQuery, m2)
+		return mgo.UpsertOne(ctx, a.Collection, idQuery, &m2)
 	}
 	if a.versionIndex >= 0 {
 		return mgo.UpsertOneWithVersion(ctx, a.Collection, model, a.versionIndex)
