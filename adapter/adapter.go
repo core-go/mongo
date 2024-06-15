@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -23,7 +24,7 @@ type Adapter[T any, K any] struct {
 	ModelType    reflect.Type
 	jsonIdName   string
 	idIndex      int
-	idObjectId   bool
+	ObjectId     bool
 	Map          map[string]string
 	versionField string
 	versionIndex int
@@ -37,8 +38,8 @@ func NewMongoAdapterWithVersion[T any, K any](db *mongo.Database, collectionName
 	}
 	var t T
 	modelType := reflect.TypeOf(t)
-	if modelType.Kind() == reflect.Ptr {
-		modelType = modelType.Elem()
+	if modelType.Kind() != reflect.Struct {
+		panic("T must be a struct")
 	}
 	idIndex, _, jsonIdName := mgo.FindIdField(modelType)
 	if idIndex < 0 {
@@ -47,11 +48,11 @@ func NewMongoAdapterWithVersion[T any, K any](db *mongo.Database, collectionName
 	if len(versionField) > 0 {
 		index := mgo.FindFieldIndex(modelType, versionField)
 		if index >= 0 {
-			return &Adapter[T, K]{Collection: db.Collection(collectionName), ModelType: modelType, jsonIdName: jsonIdName, idIndex: idIndex, idObjectId: idObjectId,
+			return &Adapter[T, K]{Collection: db.Collection(collectionName), ModelType: modelType, jsonIdName: jsonIdName, idIndex: idIndex, ObjectId: idObjectId,
 				Map: mgo.MakeBsonMap(modelType), versionField: versionField, versionIndex: index, Mapper: mapper}
 		}
 	}
-	return &Adapter[T, K]{Collection: db.Collection(collectionName), ModelType: modelType, jsonIdName: jsonIdName, idIndex: idIndex, idObjectId: idObjectId,
+	return &Adapter[T, K]{Collection: db.Collection(collectionName), ModelType: modelType, jsonIdName: jsonIdName, idIndex: idIndex, ObjectId: idObjectId,
 		Map: mgo.MakeBsonMap(modelType), Mapper: mapper, versionIndex: -1}
 }
 func NewAdapterWithVersion[T any, K any](db *mongo.Database, collectionName string, versionField string, options ...Mapper[T]) *Adapter[T, K] {
@@ -81,8 +82,7 @@ func (a *Adapter[T, K]) All(ctx context.Context) ([]T, error) {
 }
 func (a *Adapter[T, K]) Load(ctx context.Context, id K) (*T, error) {
 	var res T
-
-	if a.idObjectId {
+	if a.ObjectId {
 		objId := fmt.Sprintf("%v", id)
 		objectId, err := primitive.ObjectIDFromHex(objId)
 		if err != nil {
@@ -110,16 +110,30 @@ func (a *Adapter[T, K]) Load(ctx context.Context, id K) (*T, error) {
 }
 
 func (a *Adapter[T, K]) Exist(ctx context.Context, id K) (bool, error) {
-	return mgo.Exist(ctx, a.Collection, id, a.idObjectId)
+	return mgo.Exist(ctx, a.Collection, id, a.ObjectId)
 }
 func (a *Adapter[T, K]) Create(ctx context.Context, model *T) (int64, error) {
 	if a.Mapper != nil {
 		a.Mapper.ModelToDb(model)
 	}
 	if a.versionIndex >= 0 {
-		return mgo.InsertOneWithVersion(ctx, a.Collection, model, a.versionIndex)
+		setVersion(model, a.versionIndex)
 	}
-	return mgo.InsertOne(ctx, a.Collection, model)
+	res, id, err := InsertOne(ctx, a.Collection, model)
+	if err != nil {
+		return res, err
+	}
+	if id != nil {
+		vo := reflect.Indirect(reflect.ValueOf(model))
+		idF := vo.Field(a.idIndex)
+		switch idF.Kind() {
+		case reflect.String:
+			idF.Set(reflect.ValueOf(id.Hex()))
+		default:
+			idF.Set(reflect.ValueOf(id))
+		}
+	}
+	return res, err
 }
 func (a *Adapter[T, K]) Update(ctx context.Context, model *T) (int64, error) {
 	if a.Mapper != nil {
@@ -159,7 +173,7 @@ func (a *Adapter[T, K]) Save(ctx context.Context, model *T) (int64, error) {
 	return mgo.UpsertOne(ctx, a.Collection, idQuery, model)
 }
 func (a *Adapter[T, K]) Delete(ctx context.Context, id K) (int64, error) {
-	if a.idObjectId {
+	if a.ObjectId {
 		objId := fmt.Sprintf("%v", id)
 		objectId, err := primitive.ObjectIDFromHex(objId)
 		if err != nil {
@@ -170,4 +184,39 @@ func (a *Adapter[T, K]) Delete(ctx context.Context, id K) (int64, error) {
 	}
 	query := bson.M{"_id": id}
 	return mgo.DeleteOne(ctx, a.Collection, query)
+}
+
+func setVersion(model interface{}, versionIndex int) bool {
+	modelType := reflect.TypeOf(model).Elem()
+	versionType := modelType.Field(versionIndex).Type.String()
+	vo := reflect.Indirect(reflect.ValueOf(model))
+	switch versionType {
+	case "int":
+		vo.Field(versionIndex).Set(reflect.ValueOf(int(1)))
+		return true
+	case "int32":
+		vo.Field(versionIndex).Set(reflect.ValueOf(int32(1)))
+		return true
+	case "int64":
+		vo.Field(versionIndex).Set(reflect.ValueOf(int64(1)))
+		return true
+	default:
+		return false
+	}
+}
+func InsertOne(ctx context.Context, collection *mongo.Collection, model interface{}) (int64, *primitive.ObjectID, error) {
+	result, err := collection.InsertOne(ctx, model)
+	if err != nil {
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "duplicate key error collection:") {
+			return 0, nil, nil
+		} else {
+			return 0, nil, err
+		}
+	} else {
+		if idValue, ok := result.InsertedID.(primitive.ObjectID); ok {
+			return 1, &idValue, nil
+		}
+		return 1, nil, nil
+	}
 }

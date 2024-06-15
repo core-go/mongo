@@ -1,4 +1,4 @@
-package mongo
+package health
 
 import (
 	"context"
@@ -41,7 +41,7 @@ func (s *ServerInfoChecker) Check(ctx context.Context) (map[string]interface{}, 
 	res := make(map[string]interface{})
 	info := make(map[string]interface{})
 	checkerChan := make(chan error)
-	command := bson.D{{ "serverStatus", 1 }}
+	command := bson.D{{"serverStatus", 1}}
 	go func() {
 		checkerChan <- s.db.RunCommand(ctx, command).Decode(&info)
 	}()
