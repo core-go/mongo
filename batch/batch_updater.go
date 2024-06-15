@@ -11,25 +11,25 @@ import (
 type BatchUpdater[T any] struct {
 	collection *mongo.Collection
 	Idx        int
-	Map        func(T) T
+	Map        func(*T)
 }
 
-func NewBatchUpdaterWithId[T any](database *mongo.Database, collectionName string, options ...func(T) T) *BatchUpdater[T] {
+func NewBatchUpdaterWithId[T any](database *mongo.Database, collectionName string, options ...func(*T)) *BatchUpdater[T] {
 	var t T
 	modelType := reflect.TypeOf(t)
-	if modelType.Kind() == reflect.Ptr {
-		modelType = modelType.Elem()
+	if modelType.Kind() != reflect.Struct {
+		panic("T must be a struct")
 	}
 	idx, _, _ := mgo.FindIdField(modelType)
-	var mp func(T) T
-	if len(options) >= 1 {
+	var mp func(*T)
+	if len(options) > 0 {
 		mp = options[0]
 	}
 	collection := database.Collection(collectionName)
 	return &BatchUpdater[T]{collection, idx, mp}
 }
 
-func NewBatchUpdater[T any](database *mongo.Database, collectionName string, options ...func(T) T) *BatchUpdater[T] {
+func NewBatchUpdater[T any](database *mongo.Database, collectionName string, options ...func(*T)) *BatchUpdater[T] {
 	return NewBatchUpdaterWithId[T](database, collectionName, options...)
 }
 
@@ -39,7 +39,7 @@ func (w *BatchUpdater[T]) Write(ctx context.Context, models []T) ([]int, error) 
 	if w.Map != nil {
 		l := len(models)
 		for i := 0; i < l; i++ {
-			models[i] = w.Map(models[i])
+			w.Map(&models[i])
 		}
 	}
 	_, err = UpdateMany[T](ctx, w.collection, models, w.Idx)

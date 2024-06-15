@@ -3,16 +3,22 @@ package batch
 import (
 	"context"
 	"go.mongodb.org/mongo-driver/mongo"
+	"reflect"
 )
 
 type BatchInserter[T any] struct {
 	collection *mongo.Collection
-	Map        func(T) T
+	Map        func(*T)
 }
 
-func NewBatchInserter[T any](database *mongo.Database, collectionName string, options ...func(T) T) *BatchInserter[T] {
-	var mp func(T) T
-	if len(options) >= 1 {
+func NewBatchInserter[T any](database *mongo.Database, collectionName string, options ...func(*T)) *BatchInserter[T] {
+	var t T
+	modelType := reflect.TypeOf(t)
+	if modelType.Kind() != reflect.Struct {
+		panic("T must be a struct")
+	}
+	var mp func(*T)
+	if len(options) > 0 {
 		mp = options[0]
 	}
 	collection := database.Collection(collectionName)
@@ -21,13 +27,10 @@ func NewBatchInserter[T any](database *mongo.Database, collectionName string, op
 
 func (w *BatchInserter[T]) Write(ctx context.Context, models []T) ([]int, error) {
 	if w.Map != nil {
-		list := make([]T, 0)
 		l := len(models)
 		for i := 0; i < l; i++ {
-			obj := w.Map(models[i])
-			list = append(list, obj)
+			w.Map(&models[i])
 		}
-		return InsertMany[T](ctx, w.collection, list)
 	}
 	return InsertMany[T](ctx, w.collection, models)
 }

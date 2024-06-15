@@ -7,12 +7,12 @@ import (
 
 type Inserter[T any] struct {
 	collection *mongo.Collection
-	Map        func(T) T
+	Map        func(T)
 }
 
-func NewInserter[T any](database *mongo.Database, collectionName string, options ...func(T) T) *Inserter[T] {
-	var mp func(T) T
-	if len(options) >= 1 {
+func NewInserter[T any](database *mongo.Database, collectionName string, options ...func(T)) *Inserter[T] {
+	var mp func(T)
+	if len(options) > 0 {
 		mp = options[0]
 	}
 	collection := database.Collection(collectionName)
@@ -22,9 +22,7 @@ func NewInserter[T any](database *mongo.Database, collectionName string, options
 func (w *Inserter[T]) Write(ctx context.Context, model T) error {
 	var err error
 	if w.Map != nil {
-		m2 := w.Map(model)
-		_, err = w.collection.InsertOne(ctx, m2)
-		return err
+		w.Map(model)
 	}
 	_, err = w.collection.InsertOne(ctx, model)
 	return err

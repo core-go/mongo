@@ -40,7 +40,7 @@ func getBsonNameByIndex(modelType reflect.Type, fieldIndex int) string {
 }
 func FindGeoIndex(modelType reflect.Type) int {
 	numField := modelType.NumField()
-	k := JSON{}
+	k := Point{}
 	for i := 0; i < numField; i++ {
 		t := modelType.Field(i).Type
 		if t == reflect.TypeOf(&k) || t == reflect.TypeOf(k) {
@@ -54,8 +54,8 @@ func NewMapper[T any](options ...string) *PointMapper[T] {
 	var t T
 	modelType0 := reflect.TypeOf(t)
 	modelType := reflect.TypeOf(t)
-	if modelType.Kind() == reflect.Ptr {
-		modelType = modelType.Elem()
+	if modelType.Kind() != reflect.Struct {
+		panic("T must be a struct")
 	}
 	var bsonName, latitudeName, longitudeName string
 	if len(options) >= 1 && len(options[0]) > 0 {
@@ -93,13 +93,8 @@ func NewMapper[T any](options ...string) *PointMapper[T] {
 	}
 }
 
-func (s *PointMapper[T]) DbToModel(model T) T {
-	var rv reflect.Value
-	if s.modelType.Kind() == reflect.Ptr {
-		rv = reflect.Indirect(reflect.ValueOf(model))
-	} else {
-		rv = reflect.ValueOf(&model).Elem()
-	}
+func (s *PointMapper[T]) DbToModel(model *T) {
+	rv := reflect.Indirect(reflect.ValueOf(model))
 	b := rv.Field(s.bsonIndex)
 	k := b.Kind()
 	if k == reflect.Struct || (k == reflect.Ptr && !b.IsNil()) {
@@ -109,33 +104,25 @@ func (s *PointMapper[T]) DbToModel(model T) T {
 
 		latField := rv.Field(s.latitudeIndex)
 		if latField.Kind() == reflect.Ptr {
-			var f2 = latitude.(float64)
-			latField.Set(reflect.ValueOf(&f2))
+			var f = latitude.(float64)
+			latField.Set(reflect.ValueOf(&f))
 		} else {
 			latField.Set(reflect.ValueOf(latitude))
 		}
 		lonField := rv.Field(s.longitudeIndex)
 		if lonField.Kind() == reflect.Ptr {
-			var f *float64
-			var f2 = longitude.(float64)
-			f = &f2
-			lonField.Set(reflect.ValueOf(f))
+			var f = longitude.(float64)
+			lonField.Set(reflect.ValueOf(&f))
 		} else {
 			lonField.Set(reflect.ValueOf(longitude))
 		}
 	}
-	return model
 }
 func (s *PointMapper[T]) MapToDb(m map[string]interface{}) map[string]interface{} {
 	return FromPointMap(m, s.bsonName, s.latitudeJson, s.longitudeJson)
 }
-func (s *PointMapper[T]) ModelToDb(model T) T {
-	var rv reflect.Value
-	if s.modelType.Kind() == reflect.Ptr {
-		rv = reflect.Indirect(reflect.ValueOf(model))
-	} else {
-		rv = reflect.ValueOf(&model).Elem()
-	}
+func (s *PointMapper[T]) ModelToDb(model *T) {
+	rv := reflect.Indirect(reflect.ValueOf(model))
 	latitudeField := rv.Field(s.latitudeIndex)
 	latNil := false
 	if latitudeField.Kind() == reflect.Ptr {
@@ -162,7 +149,7 @@ func (s *PointMapper[T]) ModelToDb(model T) T {
 			arr = append(arr, la, lo)
 			coordinatesField := rv.Field(s.bsonIndex)
 			if coordinatesField.Kind() == reflect.Ptr {
-				m := &JSON{Type: "Point", Coordinates: arr}
+				m := &Point{Type: "Point", Coordinates: arr}
 				coordinatesField.Set(reflect.ValueOf(m))
 			} else {
 				x := coordinatesField.FieldByName("Type")
@@ -172,7 +159,6 @@ func (s *PointMapper[T]) ModelToDb(model T) T {
 			}
 		}
 	}
-	return model
 }
 
 func FromPointMap(m map[string]interface{}, bsonName string, latitudeJson string, longitudeJson string) map[string]interface{} {
@@ -184,7 +170,7 @@ func FromPointMap(m map[string]interface{}, bsonName string, latitudeJson string
 		if ok3 && ok4 {
 			var arr []float64
 			arr = append(arr, la, lo)
-			ml := JSON{Type: "Point", Coordinates: arr}
+			ml := Point{Type: "Point", Coordinates: arr}
 			m2 := make(map[string]interface{})
 			m2[bsonName] = ml
 			for key := range m {

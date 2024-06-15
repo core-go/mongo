@@ -14,8 +14,8 @@ import (
 )
 
 type Mapper[T any] interface {
-	DbToModel(T) T
-	ModelToDb(T) T
+	DbToModel(*T)
+	ModelToDb(*T)
 	MapToDb(map[string]interface{}) map[string]interface{}
 }
 type Adapter[T any, K any] struct {
@@ -52,7 +52,7 @@ func NewMongoAdapterWithVersion[T any, K any](db *mongo.Database, collectionName
 		}
 	}
 	return &Adapter[T, K]{Collection: db.Collection(collectionName), ModelType: modelType, jsonIdName: jsonIdName, idIndex: idIndex, idObjectId: idObjectId,
-		Map: mgo.MakeBsonMap(modelType), Mapper: mapper}
+		Map: mgo.MakeBsonMap(modelType), Mapper: mapper, versionIndex: -1}
 }
 func NewAdapterWithVersion[T any, K any](db *mongo.Database, collectionName string, versionField string, options ...Mapper[T]) *Adapter[T, K] {
 	return NewMongoAdapterWithVersion[T, K](db, collectionName, false, versionField, options...)
@@ -71,12 +71,11 @@ func (a *Adapter[T, K]) All(ctx context.Context) ([]T, error) {
 	if err != nil {
 		return nil, err
 	}
-	if a.Mapper == nil {
-		return objs, nil
-	}
-	l := len(objs)
-	for i := 0; i < l; i++ {
-		objs[i] = a.Mapper.DbToModel(objs[i])
+	if a.Mapper != nil {
+		l := len(objs)
+		for i := 0; i < l; i++ {
+			a.Mapper.DbToModel(&objs[i])
+		}
 	}
 	return objs, nil
 }
@@ -92,15 +91,20 @@ func (a *Adapter[T, K]) Load(ctx context.Context, id K) (*T, error) {
 		query := bson.M{"_id": objectId}
 		ok, er0 := mgo.FindOneAndDecode(ctx, a.Collection, query, &res)
 		if ok && er0 == nil && a.Mapper != nil {
-			res = a.Mapper.DbToModel(res)
+			a.Mapper.DbToModel(&res)
 		}
 		return &res, er0
 	}
 	query := bson.M{"_id": id}
 	ok, er2 := mgo.FindOneAndDecode(ctx, a.Collection, query, &res)
-	if ok && er2 == nil && a.Mapper != nil {
-		r2 := a.Mapper.DbToModel(res)
-		return &r2, nil
+	if er2 != nil {
+		return nil, er2
+	}
+	if !ok {
+		return nil, nil
+	}
+	if a.Mapper != nil {
+		a.Mapper.DbToModel(&res)
 	}
 	return &res, er2
 }
@@ -110,11 +114,7 @@ func (a *Adapter[T, K]) Exist(ctx context.Context, id K) (bool, error) {
 }
 func (a *Adapter[T, K]) Create(ctx context.Context, model *T) (int64, error) {
 	if a.Mapper != nil {
-		m2 := a.Mapper.ModelToDb(*model)
-		if a.versionIndex >= 0 {
-			return mgo.InsertOneWithVersion(ctx, a.Collection, &m2, a.versionIndex)
-		}
-		return mgo.InsertOne(ctx, a.Collection, &m2)
+		a.Mapper.ModelToDb(model)
 	}
 	if a.versionIndex >= 0 {
 		return mgo.InsertOneWithVersion(ctx, a.Collection, model, a.versionIndex)
@@ -123,12 +123,7 @@ func (a *Adapter[T, K]) Create(ctx context.Context, model *T) (int64, error) {
 }
 func (a *Adapter[T, K]) Update(ctx context.Context, model *T) (int64, error) {
 	if a.Mapper != nil {
-		obj2 := a.Mapper.ModelToDb(*model)
-		if a.versionIndex >= 0 {
-			return mgo.UpdateByIdAndVersion(ctx, a.Collection, &obj2, a.versionIndex)
-		}
-		idQuery := mgo.BuildQueryByIdFromObject(model)
-		return mgo.UpdateOne(ctx, a.Collection, &obj2, idQuery)
+		a.Mapper.ModelToDb(model)
 	}
 	if a.versionIndex >= 0 {
 		return mgo.UpdateByIdAndVersion(ctx, a.Collection, model, a.versionIndex)
@@ -155,12 +150,7 @@ func (a *Adapter[T, K]) Patch(ctx context.Context, model map[string]interface{})
 }
 func (a *Adapter[T, K]) Save(ctx context.Context, model *T) (int64, error) {
 	if a.Mapper != nil {
-		m2 := a.Mapper.ModelToDb(*model)
-		if a.versionIndex >= 0 {
-			return mgo.UpsertOneWithVersion(ctx, a.Collection, &m2, a.versionIndex)
-		}
-		idQuery := mgo.BuildQueryByIdFromObject(m2)
-		return mgo.UpsertOne(ctx, a.Collection, idQuery, &m2)
+		a.Mapper.ModelToDb(model)
 	}
 	if a.versionIndex >= 0 {
 		return mgo.UpsertOneWithVersion(ctx, a.Collection, model, a.versionIndex)

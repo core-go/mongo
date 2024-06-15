@@ -11,12 +11,12 @@ import (
 type Updater[T any] struct {
 	collection *mongo.Collection
 	IdName     string
-	Map        func(T) T
+	Map        func(T)
 }
 
-func NewUpdaterWithId[T any](database *mongo.Database, collectionName string, fieldName string, options ...func(T) T) *Updater[T] {
-	var mp func(T) T
-	if len(options) >= 1 {
+func NewUpdaterWithId[T any](database *mongo.Database, collectionName string, fieldName string, options ...func(T)) *Updater[T] {
+	var mp func(T)
+	if len(options) > 0 {
 		mp = options[0]
 	}
 	var t T
@@ -32,14 +32,13 @@ func NewUpdaterWithId[T any](database *mongo.Database, collectionName string, fi
 	return &Updater[T]{collection: collection, IdName: fieldName, Map: mp}
 }
 
-func NewUpdater[T any](database *mongo.Database, collectionName string, options ...func(T) T) *Updater[T] {
+func NewUpdater[T any](database *mongo.Database, collectionName string, options ...func(T)) *Updater[T] {
 	return NewUpdaterWithId[T](database, collectionName, "", options...)
 }
 
 func (w *Updater[T]) Write(ctx context.Context, model T) error {
 	if w.Map != nil {
-		m2 := w.Map(model)
-		return mgo.Update(ctx, w.collection, m2, w.IdName)
+		w.Map(model)
 	}
 	return mgo.Update(ctx, w.collection, model, w.IdName)
 }

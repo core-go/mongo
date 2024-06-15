@@ -11,24 +11,24 @@ import (
 type BatchWriter[T any] struct {
 	collection *mongo.Collection
 	Idx        int
-	Map        func(T) T
+	Map        func(*T)
 }
 
-func NewBatchWriterWithId[T any](database *mongo.Database, collectionName string, options ...func(T) T) *BatchWriter[T] {
-	var mp func(T) T
-	if len(options) >= 1 {
-		mp = options[0]
-	}
+func NewBatchWriterWithId[T any](database *mongo.Database, collectionName string, options ...func(*T)) *BatchWriter[T] {
 	var t T
 	modelType := reflect.TypeOf(t)
-	if modelType.Kind() == reflect.Ptr {
-		modelType = modelType.Elem()
+	if modelType.Kind() != reflect.Struct {
+		panic("T must be a struct")
+	}
+	var mp func(*T)
+	if len(options) > 0 {
+		mp = options[0]
 	}
 	idx, _, _ := mgo.FindIdField(modelType)
 	collection := database.Collection(collectionName)
 	return &BatchWriter[T]{collection, idx, mp}
 }
-func NewBatchWriter[T any](database *mongo.Database, collectionName string, options ...func(T) T) *BatchWriter[T] {
+func NewBatchWriter[T any](database *mongo.Database, collectionName string, options ...func(*T)) *BatchWriter[T] {
 	return NewBatchWriterWithId[T](database, collectionName, options...)
 }
 func (w *BatchWriter[T]) Write(ctx context.Context, models []T) ([]int, error) {
@@ -37,7 +37,7 @@ func (w *BatchWriter[T]) Write(ctx context.Context, models []T) ([]int, error) {
 	if w.Map != nil {
 		l := len(models)
 		for i := 0; i < l; i++ {
-			models[i] = w.Map(models[i])
+			w.Map(&models[i])
 		}
 	}
 	_, err = UpsertMany[T](ctx, w.collection, models, w.Idx)

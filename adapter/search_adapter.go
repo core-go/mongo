@@ -46,12 +46,11 @@ func (b *SearchAdapter[T, K, F]) Search(ctx context.Context, m F, limit int64, s
 	var total int64
 	var err error
 	total, err = mgo.BuildSearchResult(ctx, b.Collection, &objs, query, fields, sort, limit, skip)
-	if b.Mapper == nil {
-		return objs, total, err
-	}
-	l := len(objs)
-	for i := 0; i < l; i++ {
-		objs[i] = b.Mapper.DbToModel(objs[i])
+	if b.Mapper != nil {
+		l := len(objs)
+		for i := 0; i < l; i++ {
+			b.Mapper.DbToModel(&objs[i])
+		}
 	}
 	return objs, total, err
 }
