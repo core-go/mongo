@@ -1,6 +1,9 @@
 package mongo
 
 import (
+	"context"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"reflect"
 	"strings"
 )
@@ -54,4 +57,21 @@ func MapToBson(object map[string]interface{}, objectMap map[string]string) map[s
 		}
 	}
 	return result
+}
+func PatchOne(ctx context.Context, collection *mongo.Collection, id interface{}, model map[string]interface{}) (int64, error) {
+	filter := bson.M{"_id": id}
+	updateQuery := bson.M{
+		"$set": model,
+	}
+	result, err := collection.UpdateOne(ctx, filter, updateQuery)
+	if err != nil {
+		return 0, err
+	}
+	if result.ModifiedCount > 0 {
+		return result.ModifiedCount, err
+	} else if result.UpsertedCount > 0 {
+		return result.UpsertedCount, err
+	} else {
+		return result.MatchedCount, err
+	}
 }

@@ -196,7 +196,7 @@ func (a *Adapter[T, K]) Patch(ctx context.Context, model map[string]interface{})
 		return PatchOneByFilter(ctx, a.Collection, filter, b)
 	}
 	b := mgo.MapToBson(model, a.Map)
-	return PatchOne(ctx, a.Collection, idValue, b)
+	return mgo.PatchOne(ctx, a.Collection, idValue, b)
 }
 
 /*
@@ -322,23 +322,6 @@ func increaseMapVersion(model map[string]interface{}, name string, currentVersio
 		return true
 	} else {
 		return false
-	}
-}
-func PatchOne(ctx context.Context, collection *mongo.Collection, id interface{}, model map[string]interface{}) (int64, error) {
-	filter := bson.M{"_id": id}
-	updateQuery := bson.M{
-		"$set": model,
-	}
-	result, err := collection.UpdateOne(ctx, filter, updateQuery)
-	if err != nil {
-		return 0, err
-	}
-	if result.ModifiedCount > 0 {
-		return result.ModifiedCount, err
-	} else if result.UpsertedCount > 0 {
-		return result.UpsertedCount, err
-	} else {
-		return result.MatchedCount, err
 	}
 }
 func PatchOneByFilter(ctx context.Context, collection *mongo.Collection, filter bson.D, model map[string]interface{}) (int64, error) { //Patch

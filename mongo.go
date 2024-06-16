@@ -140,17 +140,6 @@ func FindByIdsAndDecode(ctx context.Context, collection *mongo.Collection, ids [
 	}
 	return keys, errors.New("no result return")
 }
-func Find(ctx context.Context, collection *mongo.Collection, query bson.M, modelType reflect.Type) (interface{}, error) {
-	cur, err := collection.Find(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	modelsType := reflect.Zero(reflect.SliceOf(modelType)).Type()
-	arr := reflect.New(modelsType).Interface()
-	er2 := cur.All(ctx, arr)
-	_ = cur.Close(ctx)
-	return arr, er2
-}
 func PatchMany(ctx context.Context, collection *mongo.Collection, models interface{}, idName string) (*mongo.BulkWriteResult, error) {
 	models_ := make([]mongo.WriteModel, 0)
 	ids := make([]interface{}, 0)
@@ -185,103 +174,6 @@ func PatchMany(ctx context.Context, collection *mongo.Collection, models interfa
 	}
 	var defaultOrdered = false
 	return collection.BulkWrite(ctx, models_, &options.BulkWriteOptions{Ordered: &defaultOrdered})
-}
-func PatchManyAndGetSuccessList(ctx context.Context, collection *mongo.Collection, models interface{}, idName string) (interface{}, interface{}, []interface{}, error) {
-	models_ := make([]mongo.WriteModel, 0)
-	ids := make([]interface{}, 0)
-	switch reflect.TypeOf(models).Kind() {
-	case reflect.Slice:
-		values := reflect.ValueOf(models)
-		length := values.Len()
-		if length > 0 {
-			if index := findIndex(values.Index(0).Interface(), idName); index != -1 {
-				for i := 0; i < length; i++ {
-					row := values.Index(i).Interface()
-					updateModel := mongo.NewUpdateOneModel().SetUpdate(values.Index(i))
-					v, err1 := getValue(row, index)
-					if err1 == nil && v != nil {
-						if reflect.TypeOf(v).String() != "string" {
-							updateModel = mongo.NewUpdateOneModel().SetUpdate(bson.M{
-								"$set": row,
-							}).SetFilter(bson.M{"_id": v})
-						} else {
-							if idStr, ok := v.(string); ok {
-								updateModel = mongo.NewUpdateOneModel().SetUpdate(bson.M{
-									"$set": row,
-								}).SetFilter(bson.M{"_id": idStr})
-							}
-						}
-						ids = append(ids, v)
-					}
-					models_ = append(models_, updateModel)
-				}
-			}
-		}
-	}
-	var defaultOrdered = false
-	_, er0 := collection.BulkWrite(ctx, models_, &options.BulkWriteOptions{Ordered: &defaultOrdered})
-	if er0 != nil {
-		return nil, nil, nil, er0
-	}
-	successIdList := make([]interface{}, 0)
-	_options := options.FindOptions{Projection: bson.M{"_id": 1}}
-	cur, er1 := collection.Find(ctx, bson.M{"_id": bson.M{"$in": ids}}, &_options)
-	if er1 != nil {
-		return nil, nil, nil, er1
-	}
-	er2 := cur.All(ctx, &successIdList)
-	if er2 != nil {
-		return nil, nil, nil, er2
-	}
-	successIdList = mapArrayInterface(successIdList)
-	failList, failIdList := diffModelArray(models, successIdList, idName)
-	return successIdList, failList, failIdList, er0
-}
-func mapArrayInterface(successIdList []interface{}) []interface{} {
-	arr := make([]interface{}, 0)
-	for _, value := range successIdList {
-		if primitiveE, ok := value.(primitive.D); ok {
-			for _, itemPrimitiveE := range primitiveE {
-				arr = append(arr, itemPrimitiveE.Value)
-			}
-		}
-	}
-	return arr
-}
-func diffModelArray(modelsAll interface{}, successIdList interface{}, idName string) (interface{}, []interface{}) {
-	modelsB := make([]interface{}, 0)
-	modelBId := make([]interface{}, 0)
-	switch reflect.TypeOf(modelsAll).Kind() {
-	case reflect.Slice:
-		values := reflect.ValueOf(modelsAll)
-		length := values.Len()
-		if length > 0 {
-			if index := findIndex(values.Index(0).Interface(), idName); index != -1 {
-				for i := 0; i < length; i++ {
-					itemValue := values.Index(i)
-					id, _ := getValue(itemValue.Interface(), index)
-					if !existInArrayInterface(successIdList, id) {
-						modelsB = append(modelsB, itemValue.Interface())
-						modelBId = append(modelBId, id)
-					}
-				}
-			}
-		}
-	}
-	return modelsB, modelBId
-}
-func existInArrayInterface(arr interface{}, valueID interface{}) bool {
-	switch reflect.TypeOf(arr).Kind() {
-	case reflect.Slice:
-		values := reflect.ValueOf(arr)
-		for i := 0; i < values.Len(); i++ {
-			itemValueID := values.Index(i).Interface()
-			if itemValueID == valueID {
-				return true
-			}
-		}
-	}
-	return false
 }
 func UpdateMaps(ctx context.Context, collection *mongo.Collection, maps []map[string]interface{}, idName string) (*mongo.BulkWriteResult, error) {
 	if idName == "" {
@@ -336,21 +228,4 @@ func FindFieldByName(modelType reflect.Type, fieldName string) (int, string, str
 		}
 	}
 	return -1, fieldName, fieldName
-}
-//For Search and Patch
-func GetBsonName(modelType reflect.Type, fieldName string) string {
-	field, found := modelType.FieldByName(fieldName)
-	if !found {
-		return fieldName
-	}
-	if tag, ok := field.Tag.Lookup("bson"); ok {
-		return strings.Split(tag, ",")[0]
-	}
-	return fieldName
-}
-func GetBsonNameByIndex(modelType reflect.Type, fieldIndex int) string {
-	if tag, ok := modelType.Field(fieldIndex).Tag.Lookup("bson"); ok {
-		return strings.Split(tag, ",")[0]
-	}
-	return ""
 }
