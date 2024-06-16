@@ -44,7 +44,7 @@ func (w *Writer[T]) Write(ctx context.Context, model T) error {
 	}
 	id := vo.Field(w.idIndex).Interface()
 	sid, ok := id.(string)
-	if id == nil || ok && len(sid) == 0 {
+	if ok && len(sid) == 0 || isNil(id) {
 		_, err := w.collection.InsertOne(ctx, model)
 		return err
 	}
@@ -59,4 +59,14 @@ func Upsert(ctx context.Context, collection *mongo.Collection, id interface{}, m
 	opts := options.Update().SetUpsert(true)
 	_, err := collection.UpdateOne(ctx, filter, updateQuery, opts)
 	return err
+}
+func isNil(i interface{}) bool {
+	if i == nil {
+		return true
+	}
+	switch reflect.TypeOf(i).Kind() {
+	case reflect.Ptr:
+		return reflect.ValueOf(i).IsNil()
+	}
+	return false
 }

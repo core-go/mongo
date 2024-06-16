@@ -2,9 +2,8 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/core-go/core/errors"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"reflect"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	mgo "github.com/core-go/mongo"
 )
@@ -207,7 +207,7 @@ func (a *Repository[T, K]) Patch(ctx context.Context, model map[string]interface
 		}
 		ok := increaseMapVersion(model, a.versionJson, currentVersion)
 		if !ok {
-			return -1, errors.New("Do not support this version type")
+			return -1, errors.New("do not support this version type")
 		}
 		var filter = bson.D{}
 		filter = append(filter, bson.E{Key: "_id", Value: id})
@@ -226,7 +226,7 @@ func (a *Repository[T, K]) Save(ctx context.Context, model *T) (int64, error) {
 	vo := reflect.Indirect(reflect.ValueOf(model))
 	id := vo.Field(a.idIndex).Interface()
 	sid, ok := id.(string)
-	if id == nil || ok && len(sid) == 0 {
+	if ok && len(sid) == 0 || isNil(id) {
 		if a.versionIndex >= 0 {
 			setVersion(vo, a.versionIndex)
 		}
@@ -421,4 +421,14 @@ func UpsertOneByFilter(ctx context.Context, collection *mongo.Collection, filter
 	} else {
 		return res.MatchedCount, err
 	}
+}
+func isNil(i interface{}) bool {
+	if i == nil {
+		return true
+	}
+	switch reflect.TypeOf(i).Kind() {
+	case reflect.Ptr:
+		return reflect.ValueOf(i).IsNil()
+	}
+	return false
 }

@@ -102,7 +102,7 @@ func UpsertMany[T any](ctx context.Context, collection *mongo.Collection, objs [
 
 	for i := 0; i < le; i++ {
 		id := getValue(objs[i], index)
-		if id != nil || (reflect.TypeOf(id).String() == "string" && len(id.(string)) > 0) { // if exist
+		if (reflect.TypeOf(id).String() == "string" && len(id.(string)) > 0) || !isNil(id) { // if exist
 			updateModel := mongo.NewReplaceOneModel().SetUpsert(true).SetReplacement(objs[i]).SetFilter(bson.M{"_id": id})
 			models = append(models, updateModel)
 		} else {
@@ -112,4 +112,14 @@ func UpsertMany[T any](ctx context.Context, collection *mongo.Collection, objs [
 	}
 	res, err := collection.BulkWrite(ctx, models)
 	return res, err
+}
+func isNil(i interface{}) bool {
+	if i == nil {
+		return true
+	}
+	switch reflect.TypeOf(i).Kind() {
+	case reflect.Ptr:
+		return reflect.ValueOf(i).IsNil()
+	}
+	return false
 }
