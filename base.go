@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"reflect"
 	"strings"
@@ -31,15 +30,8 @@ func FindField(modelType reflect.Type, bsonName string) (int, string, string) {
 	}
 	return -1, "", ""
 }
-func Exist(ctx context.Context, collection *mongo.Collection, id interface{}, objectId bool) (bool, error) {
+func Exist(ctx context.Context, collection *mongo.Collection, id interface{}) (bool, error) {
 	query := bson.M{"_id": id}
-	if objectId {
-		objId, err := primitive.ObjectIDFromHex(id.(string))
-		if err != nil {
-			return false, err
-		}
-		query = bson.M{"_id": objId}
-	}
 	x := collection.FindOne(ctx, query)
 	if x.Err() != nil {
 		if fmt.Sprint(x.Err()) == "mongo: no documents in result" {

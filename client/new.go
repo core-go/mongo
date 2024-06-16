@@ -1,4 +1,4 @@
-package mongo
+package client
 
 import (
 	"context"
@@ -14,7 +14,7 @@ func NewClientOptions(c MongoConfig) *options.ClientOptions {
 	}
 	if c.Credential != nil {
 		cr := *c.Credential
-		cred := options.Credential {
+		cred := options.Credential{
 			Username: cr.Username,
 			Password: cr.Password,
 		}

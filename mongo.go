@@ -8,7 +8,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"reflect"
-	"strings"
 )
 
 func CreateUniqueIndex(collection *mongo.Collection, fieldName string) (string, error) {
@@ -43,55 +42,7 @@ func difference(slice1 []string, slice2 []string) []string {
 	}
 	return diff
 }
-func FindByIds(ctx context.Context, collection *mongo.Collection, ids []string, idObjectId bool, modelType reflect.Type) (interface{}, []string, error) {
-	modelsType := reflect.Zero(reflect.SliceOf(modelType)).Type()
-	result := reflect.New(modelsType).Interface()
-	res := reflect.Indirect(reflect.ValueOf(result))
-	if !idObjectId {
-		find, errFind := collection.Find(ctx, bson.M{"_id": bson.M{"$in": ids}})
-		if errFind != nil {
-			return nil, ids, errFind
-		}
-		err := find.All(ctx, result)
-		keySuccess := []string{""}
-		_, fieldName, _ := FindIdField(modelType)
-		for i := 0; i < res.Len(); i++ {
-			key := res.Index(i).FieldByName(fieldName).String()
-			keySuccess = append(keySuccess, key)
-		}
-		keys := difference(keySuccess, ids)
-		_ = find.Close(ctx)
-		return result, keys, err
-	} else {
-		id := make([]primitive.ObjectID, 0)
-		for _, val := range ids {
-			item, err := primitive.ObjectIDFromHex(val)
-			if err != nil {
-				return false, nil, err
-			}
-			id = append(id, item)
-		}
-		find, errFind := collection.Find(ctx, bson.M{"_id": bson.M{"$in": id}})
-		if errFind != nil {
-			return false, ids, errFind
-		}
-		err := find.All(ctx, result)
-		keySuccess := make([]primitive.ObjectID, 0)
-		_, fieldName, _ := FindIdField(modelType)
-		for i := 0; i < res.Len(); i++ {
-			key, _ := primitive.ObjectIDFromHex(res.Index(i).FieldByName(fieldName).Interface().(primitive.ObjectID).Hex())
-			keySuccess = append(keySuccess, key)
-		}
-		keyToStr := []string{""}
-		for index, _ := range keySuccess {
-			key := keySuccess[index].Hex()
-			keyToStr = append(keyToStr, key)
-		}
-		keys := difference(keyToStr, ids)
-		return result, keys, err
-	}
-}
-func FindByIdsAndDecode(ctx context.Context, collection *mongo.Collection, ids []string, idObjectId bool, result interface{}) ([]string, error) {
+func FindByIds(ctx context.Context, collection *mongo.Collection, ids []string, result interface{}, idObjectId bool) ([]string, error) {
 	var keys []string
 	if !idObjectId {
 		res := reflect.Indirect(reflect.ValueOf(result))
@@ -208,24 +159,4 @@ func UpsertMaps(ctx context.Context, collection *mongo.Collection, maps []map[st
 	}
 	res, err := collection.BulkWrite(ctx, models_)
 	return res, err
-}
-func FindFieldByName(modelType reflect.Type, fieldName string) (int, string, string) {
-	numField := modelType.NumField()
-	for i := 0; i < numField; i++ {
-		field := modelType.Field(i)
-		if field.Name == fieldName {
-			name1 := fieldName
-			name2 := fieldName
-			tag1, ok1 := field.Tag.Lookup("json")
-			tag2, ok2 := field.Tag.Lookup("bson")
-			if ok1 {
-				name1 = strings.Split(tag1, ",")[0]
-			}
-			if ok2 {
-				name2 = strings.Split(tag2, ",")[0]
-			}
-			return i, name1, name2
-		}
-	}
-	return -1, fieldName, fieldName
 }

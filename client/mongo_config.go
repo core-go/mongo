@@ -1,4 +1,4 @@
-package mongo
+package client
 
 type MongoConfig struct {
 	Uri                      string            `yaml:"uri" mapstructure:"uri" json:"uri,omitempty" gorm:"column:uri" bson:"uri,omitempty" dynamodbav:"uri,omitempty" firestore:"uri,omitempty"`
