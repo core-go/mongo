@@ -5,8 +5,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"reflect"
-
-	mgo "github.com/core-go/mongo"
 )
 
 type Updater[T any] struct {
@@ -28,7 +26,7 @@ func NewUpdaterWithId[T any](database *mongo.Database, collectionName string, op
 		modelType = modelType.Elem()
 		isPointer = true
 	}
-	index, _, _ := mgo.FindIdField(modelType)
+	index := FindIdField(modelType)
 	collection := database.Collection(collectionName)
 	return &Updater[T]{collection: collection, idIndex: index, Map: mp, isPointer: isPointer}
 }

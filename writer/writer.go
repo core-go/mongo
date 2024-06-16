@@ -6,8 +6,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"reflect"
-
-	mgo "github.com/core-go/mongo"
 )
 
 type Writer[T any] struct {
@@ -29,7 +27,7 @@ func NewWriter[T any](database *mongo.Database, collectionName string, options .
 		modelType = modelType.Elem()
 		isPointer = true
 	}
-	index, _, _ := mgo.FindIdField(modelType)
+	index := FindIdField(modelType)
 	collection := database.Collection(collectionName)
 	return &Writer[T]{collection: collection, idIndex: index, Map: mp, isPointer: isPointer}
 }
