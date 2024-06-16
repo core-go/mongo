@@ -3,6 +3,7 @@ package adapter
 import (
 	"context"
 	"fmt"
+	"github.com/core-go/core/errors"
 	"log"
 	"reflect"
 	"strings"
@@ -22,15 +23,32 @@ type Mapper[T any] interface {
 type Adapter[T any, K any] struct {
 	Collection   *mongo.Collection
 	ModelType    reflect.Type
-	jsonIdName   string
-	idIndex      int
-	ObjectId     bool
 	Map          map[string]string
-	versionField string
+	ObjectId     bool
+	idIndex      int
+	idJson       string
 	versionIndex int
+	versionJson  string
+	versionBson  string
 	Mapper       Mapper[T]
 }
 
+func FindFieldByName(modelType reflect.Type, fieldName string) (int, string, string) {
+	numField := modelType.NumField()
+	for i := 0; i < numField; i++ {
+		field := modelType.Field(i)
+		if field.Name == fieldName {
+			bsonTag := field.Tag.Get("bson")
+			tags := strings.Split(bsonTag, ",")
+			json := field.Name
+			if tag1, ok1 := field.Tag.Lookup("json"); ok1 {
+				json = strings.Split(tag1, ",")[0]
+			}
+			return i, json, tags[0]
+		}
+	}
+	return -1, "", ""
+}
 func NewMongoAdapterWithVersion[T any, K any](db *mongo.Database, collectionName string, idObjectId bool, versionField string, options ...Mapper[T]) *Adapter[T, K] {
 	var mapper Mapper[T]
 	if len(options) > 0 {
@@ -45,15 +63,17 @@ func NewMongoAdapterWithVersion[T any, K any](db *mongo.Database, collectionName
 	if idIndex < 0 {
 		log.Println(modelType.Name() + " Adapter can't use functions that need Id value (Ex Load, Exist, Save, Update) because don't have any fields of " + modelType.Name() + " struct define _id bson tag.")
 	}
+	adapter := &Adapter[T, K]{Collection: db.Collection(collectionName), ModelType: modelType, idJson: jsonIdName, idIndex: idIndex, ObjectId: idObjectId,
+		Map: mgo.MakeBsonMap(modelType), Mapper: mapper, versionIndex: -1}
 	if len(versionField) > 0 {
-		index := mgo.FindFieldIndex(modelType, versionField)
+		index, versionJson, versionBson := FindFieldByName(modelType, versionField)
 		if index >= 0 {
-			return &Adapter[T, K]{Collection: db.Collection(collectionName), ModelType: modelType, jsonIdName: jsonIdName, idIndex: idIndex, ObjectId: idObjectId,
-				Map: mgo.MakeBsonMap(modelType), versionField: versionField, versionIndex: index, Mapper: mapper}
+			adapter.versionIndex = index
+			adapter.versionJson = versionJson
+			adapter.versionBson = versionBson
 		}
 	}
-	return &Adapter[T, K]{Collection: db.Collection(collectionName), ModelType: modelType, jsonIdName: jsonIdName, idIndex: idIndex, ObjectId: idObjectId,
-		Map: mgo.MakeBsonMap(modelType), Mapper: mapper, versionIndex: -1}
+	return adapter
 }
 func NewAdapterWithVersion[T any, K any](db *mongo.Database, collectionName string, versionField string, options ...Mapper[T]) *Adapter[T, K] {
 	return NewMongoAdapterWithVersion[T, K](db, collectionName, false, versionField, options...)
@@ -116,15 +136,15 @@ func (a *Adapter[T, K]) Create(ctx context.Context, model *T) (int64, error) {
 	if a.Mapper != nil {
 		a.Mapper.ModelToDb(model)
 	}
+	vo := reflect.Indirect(reflect.ValueOf(model))
 	if a.versionIndex >= 0 {
-		setVersion(model, a.versionIndex)
+		setVersion(vo, a.versionIndex)
 	}
 	res, id, err := InsertOne(ctx, a.Collection, model)
 	if err != nil {
 		return res, err
 	}
 	if id != nil {
-		vo := reflect.Indirect(reflect.ValueOf(model))
 		idF := vo.Field(a.idIndex)
 		switch idF.Kind() {
 		case reflect.String:
@@ -139,39 +159,58 @@ func (a *Adapter[T, K]) Update(ctx context.Context, model *T) (int64, error) {
 	if a.Mapper != nil {
 		a.Mapper.ModelToDb(model)
 	}
+	vo := reflect.Indirect(reflect.ValueOf(model))
+	id := vo.Field(a.idIndex).Interface()
 	if a.versionIndex >= 0 {
-		return mgo.UpdateByIdAndVersion(ctx, a.Collection, model, a.versionIndex)
+		currentVersion := vo.Field(a.versionIndex).Interface()
+		increaseVersion(vo, a.versionIndex, currentVersion)
+		var filter = bson.D{}
+		filter = append(filter, bson.E{Key: "_id", Value: id})
+		filter = append(filter, bson.E{Key: a.versionBson, Value: currentVersion})
+		return UpdateOneByFilter(ctx, a.Collection, filter, model)
 	}
-	idQuery := mgo.BuildQueryByIdFromObject(model)
-	return mgo.UpdateOne(ctx, a.Collection, model, idQuery)
+	return UpdateOne(ctx, a.Collection, id, model)
 }
+
 func (a *Adapter[T, K]) Patch(ctx context.Context, model map[string]interface{}) (int64, error) {
 	if a.Mapper != nil {
-		m3 := a.Mapper.MapToDb(model)
-		if a.versionIndex >= 0 {
-			return mgo.PatchByIdAndVersion(ctx, a.Collection, m3, a.Map, a.jsonIdName, a.versionField)
+		model = a.Mapper.MapToDb(model)
+	}
+	idValue, exist := model[a.idJson]
+	if !exist {
+		return -1, errors.New("_id must be in map[string]interface{} for patch")
+	}
+	if a.versionIndex >= 0 {
+		currentVersion, vok := model[a.versionJson]
+		if !vok {
+			return -1, fmt.Errorf("%s must be in model for patch", a.versionJson)
 		}
-		idQuery := mgo.BuildQueryByIdFromMap(m3, a.jsonIdName)
-		b0 := mgo.MapToBson(m3, a.Map)
-		return mgo.PatchOne(ctx, a.Collection, b0, idQuery)
+		ok := increaseMapVersion(model, a.versionJson, currentVersion)
+		if !ok {
+			return -1, errors.New("Do not support this version type")
+		}
+		var filter = bson.D{}
+		filter = append(filter, bson.E{Key: "_id", Value: idValue})
+		filter = append(filter, bson.E{Key: a.versionBson, Value: currentVersion})
+		b := mgo.MapToBson(model, a.Map)
+		return PatchOneByFilter(ctx, a.Collection, filter, b)
 	}
-	if a.versionIndex >= 0 {
-		return mgo.PatchByIdAndVersion(ctx, a.Collection, model, a.Map, a.jsonIdName, a.versionField)
-	}
-	idQuery := mgo.BuildQueryByIdFromMap(model, a.jsonIdName)
 	b := mgo.MapToBson(model, a.Map)
-	return mgo.PatchOne(ctx, a.Collection, b, idQuery)
+	return PatchOne(ctx, a.Collection, idValue, b)
 }
-func (a *Adapter[T, K]) Save(ctx context.Context, model *T) (int64, error) {
-	if a.Mapper != nil {
-		a.Mapper.ModelToDb(model)
+
+/*
+	func (a *Adapter[T, K]) Save(ctx context.Context, model *T) (int64, error) {
+		if a.Mapper != nil {
+			a.Mapper.ModelToDb(model)
+		}
+		if a.versionIndex >= 0 {
+			return mgo.UpsertOneWithVersion(ctx, a.Collection, model, a.versionIndex)
+		}
+		idQuery := mgo.BuildQueryByIdFromObject(model)
+		return mgo.UpsertOne(ctx, a.Collection, idQuery, model)
 	}
-	if a.versionIndex >= 0 {
-		return mgo.UpsertOneWithVersion(ctx, a.Collection, model, a.versionIndex)
-	}
-	idQuery := mgo.BuildQueryByIdFromObject(model)
-	return mgo.UpsertOne(ctx, a.Collection, idQuery, model)
-}
+*/
 func (a *Adapter[T, K]) Delete(ctx context.Context, id K) (int64, error) {
 	if a.ObjectId {
 		objId := fmt.Sprintf("%v", id)
@@ -179,23 +218,27 @@ func (a *Adapter[T, K]) Delete(ctx context.Context, id K) (int64, error) {
 		if err != nil {
 			return 0, err
 		}
-		query := bson.M{"_id": objectId}
-		return mgo.DeleteOne(ctx, a.Collection, query)
+		return DeleteOne(ctx, a.Collection, objectId)
 	}
-	query := bson.M{"_id": id}
-	return mgo.DeleteOne(ctx, a.Collection, query)
+	return DeleteOne(ctx, a.Collection, id)
+}
+func DeleteOne(ctx context.Context, collection *mongo.Collection, id interface{}) (int64, error) {
+	filter := bson.M{"_id": id}
+	result, err := collection.DeleteOne(ctx, filter)
+	if result == nil {
+		return 0, err
+	}
+	return result.DeletedCount, err
 }
 
-func setVersion(model interface{}, versionIndex int) bool {
-	modelType := reflect.TypeOf(model).Elem()
-	versionType := modelType.Field(versionIndex).Type.String()
-	vo := reflect.Indirect(reflect.ValueOf(model))
+func setVersion(vo reflect.Value, versionIndex int) bool {
+	versionType := vo.Field(versionIndex).Type().String()
 	switch versionType {
-	case "int":
-		vo.Field(versionIndex).Set(reflect.ValueOf(int(1)))
-		return true
 	case "int32":
 		vo.Field(versionIndex).Set(reflect.ValueOf(int32(1)))
+		return true
+	case "int":
+		vo.Field(versionIndex).Set(reflect.ValueOf(1))
 		return true
 	case "int64":
 		vo.Field(versionIndex).Set(reflect.ValueOf(int64(1)))
@@ -218,5 +261,96 @@ func InsertOne(ctx context.Context, collection *mongo.Collection, model interfac
 			return 1, &idValue, nil
 		}
 		return 1, nil, nil
+	}
+}
+func increaseVersion(vo reflect.Value, versionIndex int, curVer interface{}) bool {
+	versionType := vo.Field(versionIndex).Type().String()
+	switch versionType {
+	case "int32":
+		nextVer := curVer.(int32) + 1
+		vo.Field(versionIndex).Set(reflect.ValueOf(nextVer))
+		return true
+	case "int":
+		nextVer := curVer.(int) + 1
+		vo.Field(versionIndex).Set(reflect.ValueOf(nextVer))
+		return true
+	case "int64":
+		nextVer := curVer.(int64) + 1
+		vo.Field(versionIndex).Set(reflect.ValueOf(nextVer))
+		return true
+	default:
+		return false
+	}
+}
+func UpdateOneByFilter(ctx context.Context, collection *mongo.Collection, filter bson.D, model interface{}) (int64, error) { //Patch
+	updateQuery := bson.M{
+		"$set": model,
+	}
+	result, err := collection.UpdateOne(ctx, filter, updateQuery)
+	if result.ModifiedCount > 0 {
+		return result.ModifiedCount, err
+	} else if result.UpsertedCount > 0 {
+		return result.UpsertedCount, err
+	} else {
+		return result.MatchedCount, err
+	}
+}
+func UpdateOne(ctx context.Context, collection *mongo.Collection, id interface{}, model interface{}) (int64, error) { //Patch
+	filter := bson.M{"_id": id}
+	updateQuery := bson.M{
+		"$set": model,
+	}
+	result, err := collection.UpdateOne(ctx, filter, updateQuery)
+	if result.ModifiedCount > 0 {
+		return result.ModifiedCount, err
+	} else if result.UpsertedCount > 0 {
+		return result.UpsertedCount, err
+	} else {
+		return result.MatchedCount, err
+	}
+}
+
+func increaseMapVersion(model map[string]interface{}, name string, currentVersion interface{}) bool {
+	if versionI32, ok := currentVersion.(int32); ok {
+		model[name] = versionI32 + 1
+		return true
+	} else if versionI, ok := currentVersion.(int); ok {
+		model[name] = versionI + 1
+		return true
+	} else if versionI64, ok := currentVersion.(int64); ok {
+		model[name] = versionI64 + 1
+		return true
+	} else {
+		return false
+	}
+}
+func PatchOne(ctx context.Context, collection *mongo.Collection, id interface{}, model map[string]interface{}) (int64, error) {
+	filter := bson.M{"_id": id}
+	updateQuery := bson.M{
+		"$set": model,
+	}
+	result, err := collection.UpdateOne(ctx, filter, updateQuery)
+	if err != nil {
+		return 0, err
+	}
+	if result.ModifiedCount > 0 {
+		return result.ModifiedCount, err
+	} else if result.UpsertedCount > 0 {
+		return result.UpsertedCount, err
+	} else {
+		return result.MatchedCount, err
+	}
+}
+func PatchOneByFilter(ctx context.Context, collection *mongo.Collection, filter bson.D, model map[string]interface{}) (int64, error) { //Patch
+	updateQuery := bson.M{
+		"$set": model,
+	}
+	result, err := collection.UpdateOne(ctx, filter, updateQuery)
+	if result.ModifiedCount > 0 {
+		return result.ModifiedCount, err
+	} else if result.UpsertedCount > 0 {
+		return result.UpsertedCount, err
+	} else {
+		return result.MatchedCount, err
 	}
 }
