@@ -2,10 +2,11 @@ package batch
 
 import (
 	"context"
+	"reflect"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"reflect"
 )
 
 func InsertMany[T any](ctx context.Context, collection *mongo.Collection, objs []T) ([]int, error) {
@@ -30,12 +31,23 @@ func InsertMany[T any](ctx context.Context, collection *mongo.Collection, objs [
 	}
 	return failIndices, err
 }
-func UpdateMany[T any](ctx context.Context, collection *mongo.Collection, objs []T, index int) (*mongo.BulkWriteResult, error) {
-	models := make([]mongo.WriteModel, 0)
+func UpdateMany[T any](ctx context.Context, collection *mongo.Collection, objs []T, opts ...int) (*mongo.BulkWriteResult, error) {
 	le := len(objs)
 	if le == 0 {
 		return nil, nil
 	}
+	var index int
+	if len(opts) > 0 && opts[0] >= 0 {
+		index = opts[0]
+	} else {
+		var t T
+		modelType := reflect.TypeOf(t)
+		if modelType.Kind() != reflect.Struct {
+			panic("T must be a struct")
+		}
+		index = FindIdField(modelType)
+	}
+	models := make([]mongo.WriteModel, 0)
 	for i := 0; i < le; i++ {
 		v := getValue(objs[i], index)
 		updateQuery := bson.M{
@@ -70,12 +82,24 @@ func PatchMaps(ctx context.Context, collection *mongo.Collection, maps []map[str
 	res, err := collection.BulkWrite(ctx, writeModels)
 	return res, err
 }
-func UpsertMany[T any](ctx context.Context, collection *mongo.Collection, objs []T, index int) (*mongo.BulkWriteResult, error) { //Patch
-	models := make([]mongo.WriteModel, 0)
+func UpsertMany[T any](ctx context.Context, collection *mongo.Collection, objs []T, opts ...int) (*mongo.BulkWriteResult, error) { //Patch
 	le := len(objs)
 	if le == 0 {
 		return nil, nil
 	}
+	var index int
+	if len(opts) > 0 && opts[0] >= 0 {
+		index = opts[0]
+	} else {
+		var t T
+		modelType := reflect.TypeOf(t)
+		if modelType.Kind() != reflect.Struct {
+			panic("T must be a struct")
+		}
+		index = FindIdField(modelType)
+	}
+	models := make([]mongo.WriteModel, 0)
+
 	for i := 0; i < le; i++ {
 		id := getValue(objs[i], index)
 		if id != nil || (reflect.TypeOf(id).String() == "string" && len(id.(string)) > 0) { // if exist

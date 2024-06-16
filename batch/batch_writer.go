@@ -4,8 +4,6 @@ import (
 	"context"
 	"go.mongodb.org/mongo-driver/mongo"
 	"reflect"
-
-	mgo "github.com/core-go/mongo"
 )
 
 type BatchWriter[T any] struct {
@@ -14,7 +12,7 @@ type BatchWriter[T any] struct {
 	Map        func(*T)
 }
 
-func NewBatchWriterWithId[T any](database *mongo.Database, collectionName string, options ...func(*T)) *BatchWriter[T] {
+func NewBatchWriter[T any](database *mongo.Database, collectionName string, options ...func(*T)) *BatchWriter[T] {
 	var t T
 	modelType := reflect.TypeOf(t)
 	if modelType.Kind() != reflect.Struct {
@@ -24,12 +22,9 @@ func NewBatchWriterWithId[T any](database *mongo.Database, collectionName string
 	if len(options) > 0 {
 		mp = options[0]
 	}
-	idx, _, _ := mgo.FindIdField(modelType)
+	idx := FindIdField(modelType)
 	collection := database.Collection(collectionName)
 	return &BatchWriter[T]{collection, idx, mp}
-}
-func NewBatchWriter[T any](database *mongo.Database, collectionName string, options ...func(*T)) *BatchWriter[T] {
-	return NewBatchWriterWithId[T](database, collectionName, options...)
 }
 func (w *BatchWriter[T]) Write(ctx context.Context, models []T) ([]int, error) {
 	failIndices := make([]int, 0)

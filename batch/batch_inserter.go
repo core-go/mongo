@@ -2,8 +2,9 @@ package batch
 
 import (
 	"context"
-	"go.mongodb.org/mongo-driver/mongo"
 	"reflect"
+
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type BatchInserter[T any] struct {

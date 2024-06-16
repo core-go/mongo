@@ -4,8 +4,6 @@ import (
 	"context"
 	"go.mongodb.org/mongo-driver/mongo"
 	"reflect"
-
-	mgo "github.com/core-go/mongo"
 )
 
 type BatchUpdater[T any] struct {
@@ -20,7 +18,7 @@ func NewBatchUpdaterWithId[T any](database *mongo.Database, collectionName strin
 	if modelType.Kind() != reflect.Struct {
 		panic("T must be a struct")
 	}
-	idx, _, _ := mgo.FindIdField(modelType)
+	idx := FindIdField(modelType)
 	var mp func(*T)
 	if len(options) > 0 {
 		mp = options[0]
