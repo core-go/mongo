@@ -22,12 +22,6 @@ func InsertMany[T any](ctx context.Context, collection *mongo.Collection, objs [
 		for _, writeError := range bulkWriteException.WriteErrors {
 			failIndices = append(failIndices, writeError.Index)
 		}
-		return failIndices, nil
-	} else {
-		l := len(objs)
-		for i := 0; i < l; i++ {
-			failIndices = append(failIndices, i)
-		}
 	}
 	return failIndices, err
 }

@@ -14,7 +14,7 @@ type Updater[T any] struct {
 	isPointer  bool
 }
 
-func NewUpdaterWithId[T any](database *mongo.Database, collectionName string, options ...func(T)) *Updater[T] {
+func NewUpdater[T any](database *mongo.Database, collectionName string, options ...func(T)) *Updater[T] {
 	var mp func(T)
 	if len(options) > 0 {
 		mp = options[0]
@@ -29,10 +29,6 @@ func NewUpdaterWithId[T any](database *mongo.Database, collectionName string, op
 	index := FindIdField(modelType)
 	collection := database.Collection(collectionName)
 	return &Updater[T]{collection: collection, idIndex: index, Map: mp, isPointer: isPointer}
-}
-
-func NewUpdater[T any](database *mongo.Database, collectionName string, options ...func(T)) *Updater[T] {
-	return NewUpdaterWithId[T](database, collectionName, options...)
 }
 
 func (w *Updater[T]) Write(ctx context.Context, model T) error {

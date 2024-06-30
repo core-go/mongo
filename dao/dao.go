@@ -8,12 +8,10 @@ import (
 	"reflect"
 	"strings"
 
+	mgo "github.com/core-go/mongo"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-
-	mgo "github.com/core-go/mongo"
 )
 
 type Mapper[T any] interface {
@@ -152,7 +150,7 @@ func (a *Dao[T, K]) Create(ctx context.Context, model *T) (int64, error) {
 	if a.versionIndex >= 0 {
 		setVersion(vo, a.versionIndex)
 	}
-	res, rid, err := InsertOne(ctx, a.Collection, model)
+	rid, res, err := mgo.InsertOne(ctx, a.Collection, model)
 	if err != nil {
 		return res, err
 	}
@@ -187,9 +185,9 @@ func (a *Dao[T, K]) Update(ctx context.Context, model *T) (int64, error) {
 		var filter = bson.D{}
 		filter = append(filter, bson.E{Key: "_id", Value: id})
 		filter = append(filter, bson.E{Key: a.versionBson, Value: currentVersion})
-		return UpdateOneByFilter(ctx, a.Collection, filter, model)
+		return mgo.UpdateOneByFilter(ctx, a.Collection, filter, model)
 	}
-	return UpdateOne(ctx, a.Collection, id, model)
+	return mgo.UpdateOne(ctx, a.Collection, id, model)
 }
 
 func (a *Dao[T, K]) Patch(ctx context.Context, model map[string]interface{}) (int64, error) {
@@ -213,7 +211,7 @@ func (a *Dao[T, K]) Patch(ctx context.Context, model map[string]interface{}) (in
 		filter = append(filter, bson.E{Key: "_id", Value: id})
 		filter = append(filter, bson.E{Key: a.versionBson, Value: currentVersion})
 		b := mgo.MapToBson(model, a.Map)
-		return PatchOneByFilter(ctx, a.Collection, filter, b)
+		return mgo.PatchOneByFilter(ctx, a.Collection, filter, b)
 	}
 	b := mgo.MapToBson(model, a.Map)
 	return mgo.PatchOne(ctx, a.Collection, id, b)
@@ -230,7 +228,7 @@ func (a *Dao[T, K]) Save(ctx context.Context, model *T) (int64, error) {
 		if a.versionIndex >= 0 {
 			setVersion(vo, a.versionIndex)
 		}
-		res, rid, err := InsertOne(ctx, a.Collection, model)
+		rid, res, err := mgo.InsertOne(ctx, a.Collection, model)
 		if err != nil {
 			return res, err
 		}
@@ -259,9 +257,9 @@ func (a *Dao[T, K]) Save(ctx context.Context, model *T) (int64, error) {
 			var filter = bson.D{}
 			filter = append(filter, bson.E{Key: "_id", Value: id})
 			filter = append(filter, bson.E{Key: a.versionBson, Value: currentVersion})
-			return UpsertOneByFilter(ctx, a.Collection, filter, model)
+			return mgo.UpsertOneByFilter(ctx, a.Collection, filter, model)
 		} else {
-			return UpsertOne(ctx, a.Collection, id, model)
+			return mgo.UpsertOne(ctx, a.Collection, id, model)
 		}
 	}
 }
@@ -272,19 +270,10 @@ func (a *Dao[T, K]) Delete(ctx context.Context, id K) (int64, error) {
 		if err != nil {
 			return 0, err
 		}
-		return DeleteOne(ctx, a.Collection, objectId)
+		return mgo.DeleteOne(ctx, a.Collection, objectId)
 	}
-	return DeleteOne(ctx, a.Collection, id)
+	return mgo.DeleteOne(ctx, a.Collection, id)
 }
-func DeleteOne(ctx context.Context, collection *mongo.Collection, id interface{}) (int64, error) {
-	filter := bson.M{"_id": id}
-	result, err := collection.DeleteOne(ctx, filter)
-	if result == nil {
-		return 0, err
-	}
-	return result.DeletedCount, err
-}
-
 func setVersion(vo reflect.Value, versionIndex int) bool {
 	versionType := vo.Field(versionIndex).Type().String()
 	switch versionType {
@@ -299,22 +288,6 @@ func setVersion(vo reflect.Value, versionIndex int) bool {
 		return true
 	default:
 		return false
-	}
-}
-func InsertOne(ctx context.Context, collection *mongo.Collection, model interface{}) (int64, *primitive.ObjectID, error) {
-	result, err := collection.InsertOne(ctx, model)
-	if err != nil {
-		errMsg := err.Error()
-		if strings.Contains(errMsg, "duplicate key error collection:") {
-			return 0, nil, nil
-		} else {
-			return 0, nil, err
-		}
-	} else {
-		if idValue, ok := result.InsertedID.(primitive.ObjectID); ok {
-			return 1, &idValue, nil
-		}
-		return 1, nil, nil
 	}
 }
 
@@ -337,33 +310,6 @@ func increaseVersion(vo reflect.Value, versionIndex int, curVer interface{}) boo
 		return false
 	}
 }
-func UpdateOneByFilter(ctx context.Context, collection *mongo.Collection, filter bson.D, model interface{}) (int64, error) { //Patch
-	updateQuery := bson.M{
-		"$set": model,
-	}
-	result, err := collection.UpdateOne(ctx, filter, updateQuery)
-	if result.ModifiedCount > 0 {
-		return result.ModifiedCount, err
-	} else if result.UpsertedCount > 0 {
-		return result.UpsertedCount, err
-	} else {
-		return result.MatchedCount, err
-	}
-}
-func UpdateOne(ctx context.Context, collection *mongo.Collection, id interface{}, model interface{}) (int64, error) { //Patch
-	filter := bson.M{"_id": id}
-	updateQuery := bson.M{
-		"$set": model,
-	}
-	result, err := collection.UpdateOne(ctx, filter, updateQuery)
-	if result.ModifiedCount > 0 {
-		return result.ModifiedCount, err
-	} else if result.UpsertedCount > 0 {
-		return result.UpsertedCount, err
-	} else {
-		return result.MatchedCount, err
-	}
-}
 
 func increaseMapVersion(model map[string]interface{}, name string, currentVersion interface{}) bool {
 	if versionI32, ok := currentVersion.(int32); ok {
@@ -379,49 +325,7 @@ func increaseMapVersion(model map[string]interface{}, name string, currentVersio
 		return false
 	}
 }
-func PatchOneByFilter(ctx context.Context, collection *mongo.Collection, filter bson.D, model map[string]interface{}) (int64, error) { //Patch
-	updateQuery := bson.M{
-		"$set": model,
-	}
-	result, err := collection.UpdateOne(ctx, filter, updateQuery)
-	if result.ModifiedCount > 0 {
-		return result.ModifiedCount, err
-	} else if result.UpsertedCount > 0 {
-		return result.UpsertedCount, err
-	} else {
-		return result.MatchedCount, err
-	}
-}
 
-func UpsertOne(ctx context.Context, collection *mongo.Collection, id interface{}, model interface{}) (int64, error) {
-	filter := bson.M{"_id": id}
-	updateQuery := bson.M{
-		"$set": model,
-	}
-	opts := options.Update().SetUpsert(true)
-	res, err := collection.UpdateOne(ctx, filter, updateQuery, opts)
-	if res.ModifiedCount > 0 {
-		return res.ModifiedCount, err
-	} else if res.UpsertedCount > 0 {
-		return res.UpsertedCount, err
-	} else {
-		return res.MatchedCount, err
-	}
-}
-func UpsertOneByFilter(ctx context.Context, collection *mongo.Collection, filter bson.D, model interface{}) (int64, error) {
-	updateQuery := bson.M{
-		"$set": model,
-	}
-	opts := options.Update().SetUpsert(true)
-	res, err := collection.UpdateOne(ctx, filter, updateQuery, opts)
-	if res.ModifiedCount > 0 {
-		return res.ModifiedCount, err
-	} else if res.UpsertedCount > 0 {
-		return res.UpsertedCount, err
-	} else {
-		return res.MatchedCount, err
-	}
-}
 func isNil(i interface{}) bool {
 	if i == nil {
 		return true

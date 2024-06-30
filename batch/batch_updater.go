@@ -49,11 +49,6 @@ func (w *BatchUpdater[T]) Write(ctx context.Context, models []T) ([]int, error) 
 		for _, writeError := range bulkWriteException.WriteErrors {
 			failIndices = append(failIndices, writeError.Index)
 		}
-	} else {
-		l := len(models)
-		for i := 0; i < l; i++ {
-			failIndices = append(failIndices, i)
-		}
 	}
 	return failIndices, err
 }
