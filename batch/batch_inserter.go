@@ -10,20 +10,24 @@ import (
 type BatchInserter[T any] struct {
 	collection *mongo.Collection
 	Map        func(*T)
+	retryAll   bool
 }
 
-func NewBatchInserter[T any](database *mongo.Database, collectionName string, options ...func(*T)) *BatchInserter[T] {
+func NewBatchInserterWithRetry[T any](db *mongo.Database, collectionName string, retryAll bool, opts ...func(*T)) *BatchInserter[T] {
 	var t T
 	modelType := reflect.TypeOf(t)
 	if modelType.Kind() != reflect.Struct {
 		panic("T must be a struct")
 	}
 	var mp func(*T)
-	if len(options) > 0 {
-		mp = options[0]
+	if len(opts) > 0 {
+		mp = opts[0]
 	}
-	collection := database.Collection(collectionName)
-	return &BatchInserter[T]{collection: collection, Map: mp}
+	collection := db.Collection(collectionName)
+	return &BatchInserter[T]{collection: collection, Map: mp, retryAll: retryAll}
+}
+func NewBatchInserter[T any](db *mongo.Database, collectionName string, opts ...func(*T)) *BatchInserter[T] {
+	return NewBatchInserterWithRetry[T](db, collectionName, false, opts...)
 }
 
 func (w *BatchInserter[T]) Write(ctx context.Context, models []T) ([]int, error) {
@@ -33,5 +37,14 @@ func (w *BatchInserter[T]) Write(ctx context.Context, models []T) ([]int, error)
 			w.Map(&models[i])
 		}
 	}
-	return InsertMany[T](ctx, w.collection, models)
+	fails, err := InsertMany[T](ctx, w.collection, models)
+	if err != nil && len(fails) == 0 && w.retryAll {
+		l := len(models)
+		failIndices := make([]int, 0)
+		for i := 0; i < l; i++ {
+			failIndices = append(failIndices, i)
+		}
+		return failIndices, err
+	}
+	return fails, err
 }

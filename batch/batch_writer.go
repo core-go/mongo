@@ -10,21 +10,28 @@ type BatchWriter[T any] struct {
 	collection *mongo.Collection
 	Idx        int
 	Map        func(*T)
+	retryAll   bool
 }
 
-func NewBatchWriter[T any](database *mongo.Database, collectionName string, options ...func(*T)) *BatchWriter[T] {
+func NewBatchWriterWithRetry[T any](db *mongo.Database, collectionName string, retryAll bool, opts ...func(*T)) *BatchWriter[T] {
 	var t T
 	modelType := reflect.TypeOf(t)
 	if modelType.Kind() != reflect.Struct {
 		panic("T must be a struct")
 	}
-	var mp func(*T)
-	if len(options) > 0 {
-		mp = options[0]
-	}
 	idx := FindIdField(modelType)
-	collection := database.Collection(collectionName)
-	return &BatchWriter[T]{collection, idx, mp}
+	if idx < 0 {
+		panic("T must contain Id field, which has '_id' bson tag")
+	}
+	var mp func(*T)
+	if len(opts) > 0 {
+		mp = opts[0]
+	}
+	collection := db.Collection(collectionName)
+	return &BatchWriter[T]{collection, idx, mp, retryAll}
+}
+func NewBatchWriter[T any](db *mongo.Database, collectionName string, retryAll bool, opts ...func(*T)) *BatchWriter[T] {
+	return NewBatchWriterWithRetry[T](db, collectionName, false, opts...)
 }
 func (w *BatchWriter[T]) Write(ctx context.Context, models []T) ([]int, error) {
 	failIndices := make([]int, 0)
@@ -45,6 +52,13 @@ func (w *BatchWriter[T]) Write(ctx context.Context, models []T) ([]int, error) {
 		for _, writeError := range bulkWriteException.WriteErrors {
 			failIndices = append(failIndices, writeError.Index)
 		}
+	} else if w.retryAll {
+		l := len(models)
+		fails := make([]int, 0)
+		for i := 0; i < l; i++ {
+			fails = append(fails, i)
+		}
+		return fails, err
 	}
 	return failIndices, err
 }

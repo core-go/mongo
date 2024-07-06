@@ -10,27 +10,29 @@ type BatchUpdater[T any] struct {
 	collection *mongo.Collection
 	Idx        int
 	Map        func(*T)
+	retryAll   bool
 }
 
-func NewBatchUpdaterWithId[T any](database *mongo.Database, collectionName string, options ...func(*T)) *BatchUpdater[T] {
+func NewBatchUpdaterWithRetry[T any](db *mongo.Database, collectionName string, retryAll bool, opts ...func(*T)) *BatchUpdater[T] {
 	var t T
 	modelType := reflect.TypeOf(t)
 	if modelType.Kind() != reflect.Struct {
 		panic("T must be a struct")
 	}
 	idx := FindIdField(modelType)
-	var mp func(*T)
-	if len(options) > 0 {
-		mp = options[0]
+	if idx < 0 {
+		panic("T must contain Id field, which has '_id' bson tag")
 	}
-	collection := database.Collection(collectionName)
-	return &BatchUpdater[T]{collection, idx, mp}
+	var mp func(*T)
+	if len(opts) > 0 {
+		mp = opts[0]
+	}
+	collection := db.Collection(collectionName)
+	return &BatchUpdater[T]{collection, idx, mp, retryAll}
 }
-
-func NewBatchUpdater[T any](database *mongo.Database, collectionName string, options ...func(*T)) *BatchUpdater[T] {
-	return NewBatchUpdaterWithId[T](database, collectionName, options...)
+func NewBatchUpdater[T any](db *mongo.Database, collectionName string, retryAll bool, opts ...func(*T)) *BatchUpdater[T] {
+	return NewBatchUpdaterWithRetry[T](db, collectionName, false, opts...)
 }
-
 func (w *BatchUpdater[T]) Write(ctx context.Context, models []T) ([]int, error) {
 	failIndices := make([]int, 0)
 	var err error
@@ -49,6 +51,13 @@ func (w *BatchUpdater[T]) Write(ctx context.Context, models []T) ([]int, error) 
 		for _, writeError := range bulkWriteException.WriteErrors {
 			failIndices = append(failIndices, writeError.Index)
 		}
+	} else if w.retryAll {
+		l := len(models)
+		fails := make([]int, 0)
+		for i := 0; i < l; i++ {
+			fails = append(fails, i)
+		}
+		return fails, err
 	}
 	return failIndices, err
 }
