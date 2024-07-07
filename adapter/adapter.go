@@ -185,7 +185,18 @@ func (a *Adapter[T, K]) Update(ctx context.Context, model *T) (int64, error) {
 		var filter = bson.D{}
 		filter = append(filter, bson.E{Key: "_id", Value: id})
 		filter = append(filter, bson.E{Key: a.versionBson, Value: currentVersion})
-		return mgo.UpdateOneByFilter(ctx, a.Collection, filter, model)
+		res, err := mgo.UpdateOneByFilter(ctx, a.Collection, filter, model)
+		if err != nil {
+			return res, err
+		}
+		if res <= 0 {
+			ok, _ := mgo.Exist(ctx, a.Collection, id)
+			if ok {
+				return -1, nil
+			} else {
+				return 0, nil
+			}
+		}
 	}
 	return mgo.UpdateOne(ctx, a.Collection, id, model)
 }

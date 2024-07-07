@@ -65,17 +65,17 @@ func NewMongoRepositoryWithVersion[T any, K any](db *mongo.Database, collectionN
 	if idIndex < 0 {
 		log.Println(modelType.Name() + " Repository can't use functions that need Id value (Ex Load, Exist, Save, Update) because don't have any fields of " + modelType.Name() + " struct define _id bson tag.")
 	}
-	adapter := &Repository[T, K]{Collection: db.Collection(collectionName), idJson: jsonIdName, idIndex: idIndex, ObjectId: idObjectId,
+	repo := &Repository[T, K]{Collection: db.Collection(collectionName), idJson: jsonIdName, idIndex: idIndex, ObjectId: idObjectId,
 		Map: mgo.MakeBsonMap(modelType), Mapper: mapper, versionIndex: -1}
 	if len(versionField) > 0 {
 		index, versionJson, versionBson := FindFieldByName(modelType, versionField)
 		if index >= 0 {
-			adapter.versionIndex = index
-			adapter.versionJson = versionJson
-			adapter.versionBson = versionBson
+			repo.versionIndex = index
+			repo.versionJson = versionJson
+			repo.versionBson = versionBson
 		}
 	}
-	return adapter
+	return repo
 }
 func NewRepositoryWithVersion[T any, K any](db *mongo.Database, collectionName string, versionField string, options ...Mapper[T]) *Repository[T, K] {
 	return NewMongoRepositoryWithVersion[T, K](db, collectionName, false, versionField, options...)
@@ -185,7 +185,18 @@ func (a *Repository[T, K]) Update(ctx context.Context, model *T) (int64, error) 
 		var filter = bson.D{}
 		filter = append(filter, bson.E{Key: "_id", Value: id})
 		filter = append(filter, bson.E{Key: a.versionBson, Value: currentVersion})
-		return mgo.UpdateOneByFilter(ctx, a.Collection, filter, model)
+		res, err := mgo.UpdateOneByFilter(ctx, a.Collection, filter, model)
+		if err != nil {
+			return res, err
+		}
+		if res <= 0 {
+			ok, _ := mgo.Exist(ctx, a.Collection, id)
+			if ok {
+				return -1, nil
+			} else {
+				return 0, nil
+			}
+		}
 	}
 	return mgo.UpdateOne(ctx, a.Collection, id, model)
 }
@@ -224,7 +235,7 @@ func (a *Repository[T, K]) Save(ctx context.Context, model *T) (int64, error) {
 	vo := reflect.Indirect(reflect.ValueOf(model))
 	id := vo.Field(a.idIndex).Interface()
 	sid, ok := id.(string)
-	if ok && len(sid) == 0 || isNil(id) {
+	if id == nil || ok && len(sid) == 0 {
 		if a.versionIndex >= 0 {
 			setVersion(vo, a.versionIndex)
 		}
@@ -274,6 +285,7 @@ func (a *Repository[T, K]) Delete(ctx context.Context, id K) (int64, error) {
 	}
 	return mgo.DeleteOne(ctx, a.Collection, id)
 }
+
 func setVersion(vo reflect.Value, versionIndex int) bool {
 	versionType := vo.Field(versionIndex).Type().String()
 	switch versionType {
@@ -290,7 +302,6 @@ func setVersion(vo reflect.Value, versionIndex int) bool {
 		return false
 	}
 }
-
 func increaseVersion(vo reflect.Value, versionIndex int, curVer interface{}) bool {
 	versionType := vo.Field(versionIndex).Type().String()
 	switch versionType {
@@ -310,7 +321,6 @@ func increaseVersion(vo reflect.Value, versionIndex int, curVer interface{}) boo
 		return false
 	}
 }
-
 func increaseMapVersion(model map[string]interface{}, name string, currentVersion interface{}) bool {
 	if versionI32, ok := currentVersion.(int32); ok {
 		model[name] = versionI32 + 1
@@ -324,14 +334,4 @@ func increaseMapVersion(model map[string]interface{}, name string, currentVersio
 	} else {
 		return false
 	}
-}
-func isNil(i interface{}) bool {
-	if i == nil {
-		return true
-	}
-	switch reflect.TypeOf(i).Kind() {
-	case reflect.Ptr:
-		return reflect.ValueOf(i).IsNil()
-	}
-	return false
 }

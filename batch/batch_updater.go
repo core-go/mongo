@@ -30,7 +30,7 @@ func NewBatchUpdaterWithRetry[T any](db *mongo.Database, collectionName string, 
 	collection := db.Collection(collectionName)
 	return &BatchUpdater[T]{collection, idx, mp, retryAll}
 }
-func NewBatchUpdater[T any](db *mongo.Database, collectionName string, retryAll bool, opts ...func(*T)) *BatchUpdater[T] {
+func NewBatchUpdater[T any](db *mongo.Database, collectionName string, opts ...func(*T)) *BatchUpdater[T] {
 	return NewBatchUpdaterWithRetry[T](db, collectionName, false, opts...)
 }
 func (w *BatchUpdater[T]) Write(ctx context.Context, models []T) ([]int, error) {

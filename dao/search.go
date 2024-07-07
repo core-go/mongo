@@ -19,23 +19,23 @@ type SearchDao[T any, K any, F any] struct {
 }
 
 func NewSearchDaoWithSortAndVersion[T any, K any, F any](db *mongo.Database, collectionName string, buildQuery func(m F) (bson.D, bson.M), getSort func(interface{}) string, buildSort func(string, reflect.Type) bson.D, idObjectId bool, versionField string, options ...Mapper[T]) *SearchDao[T, K, F] {
-	repo := NewMongoRepositoryWithVersion[T, K](db, collectionName, idObjectId, versionField, options...)
+	daobj := NewMongoDaoWithVersion[T, K](db, collectionName, idObjectId, versionField, options...)
 	var t T
 	modelType := reflect.TypeOf(t)
-	return &SearchDao[T, K, F]{Dao: repo, BuildSort: buildSort, GetSort: getSort, BuildQuery: buildQuery, ModelType: modelType}
+	return &SearchDao[T, K, F]{Dao: daobj, BuildSort: buildSort, GetSort: getSort, BuildQuery: buildQuery, ModelType: modelType}
 }
 
 func NewSearchDaoWithVersion[T any, K any, F any](db *mongo.Database, collectionName string, buildQuery func(m F) (bson.D, bson.M), getSort func(interface{}) string, versionField string, options ...Mapper[T]) *SearchDao[T, K, F] {
-	repo := NewMongoRepositoryWithVersion[T, K](db, collectionName, false, versionField, options...)
+	daobj := NewMongoDaoWithVersion[T, K](db, collectionName, false, versionField, options...)
 	var t T
 	modelType := reflect.TypeOf(t)
-	return &SearchDao[T, K, F]{Dao: repo, BuildSort: mgo.BuildSort, GetSort: getSort, BuildQuery: buildQuery, ModelType: modelType}
+	return &SearchDao[T, K, F]{Dao: daobj, BuildSort: mgo.BuildSort, GetSort: getSort, BuildQuery: buildQuery, ModelType: modelType}
 }
 func NewSearchDao[T any, K any, F any](db *mongo.Database, collectionName string, buildQuery func(m F) (bson.D, bson.M), getSort func(interface{}) string, options ...Mapper[T]) *SearchDao[T, K, F] {
-	repo := NewMongoRepositoryWithVersion[T, K](db, collectionName, false, "", options...)
+	daobj := NewMongoDaoWithVersion[T, K](db, collectionName, false, "", options...)
 	var t T
 	modelType := reflect.TypeOf(t)
-	return &SearchDao[T, K, F]{Dao: repo, BuildSort: mgo.BuildSort, GetSort: getSort, BuildQuery: buildQuery, ModelType: modelType}
+	return &SearchDao[T, K, F]{Dao: daobj, BuildSort: mgo.BuildSort, GetSort: getSort, BuildQuery: buildQuery, ModelType: modelType}
 }
 func (b *SearchDao[T, K, F]) Search(ctx context.Context, m F, limit int64, skip int64) ([]T, int64, error) {
 	var objs []T
