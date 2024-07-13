@@ -132,7 +132,14 @@ func Build(filter interface{}, resultModelType reflect.Type, arrFields []string,
 			} else if key == "like" {
 				query = append(query, bson.E{Key: bsonName, Value: primitive.Regex{Pattern: fmt.Sprintf("\\w*%v\\w*", psv)}})
 			} else {
-				query = append(query, bson.E{Key: bsonName, Value: primitive.Regex{Pattern: fmt.Sprintf("^%v", psv)}})
+				opr, ok2 := Operators[key]
+				if ok2 {
+					dQuery := bson.M{}
+					dQuery[opr] = psv
+					query = append(query, bson.E{Key: bsonName, Value: dQuery})
+				} else {
+					query = append(query, bson.E{Key: bsonName, Value: primitive.Regex{Pattern: fmt.Sprintf("^%v", psv)}})
+				}
 			}
 		} else if kind == reflect.Slice {
 			if field.Len() > 0 {
