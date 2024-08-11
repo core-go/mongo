@@ -1,5 +1,5 @@
 # Mongo
-- Mongo is a library to wrap [Mongo Driver](go.mongodb.org/mongo-driver/mongo) with these purposes:
+Mongo is a library to wrap [Mongo Driver](go.mongodb.org/mongo-driver/mongo) with these purposes:
 #### Simplified Database Operations
 - Simplify common database operations, such as CRUD (Create, Read, Update, Delete) operations, transactions, and batch processing
 #### Reduced Boilerplate Code
