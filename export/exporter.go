@@ -72,6 +72,7 @@ func (s *Exporter[T]) Export(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	defer cursor.Close(ctx)
+	defer s.Close()
 	var i int64
 	i = 0
 	for cursor.Next(ctx) {
@@ -80,9 +81,9 @@ func (s *Exporter[T]) Export(ctx context.Context) (int64, error) {
 		if err != nil {
 			return i, err
 		}
-		err1 := s.TransformAndWrite(ctx, s.Write, &obj)
-		if err1 != nil {
-			return i, err1
+		er2 := s.TransformAndWrite(ctx, s.Write, &obj)
+		if er2 != nil {
+			return i, er2
 		}
 		i = i + 1
 	}
